@@ -383,7 +383,7 @@ const app = {
         const balls = '⚽'.repeat(payload.rating);
         const text = `⚽ *KickerCoach Trainer-Feedback*\n\n• *Thema:* ${payload.category}\n• *Bewertung:* ${balls} (${payload.rating}/5)\n• *Von:* ${payload.name || 'Trainerkollege'}\n\n*Anmerkung / Wunsch:*\n${payload.text}`;
         
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+        window.open(`https://api.whatsapp.com/send?phone=4917622350283&text=${encodeURIComponent(text)}`, '_blank');
       });
     }
 
