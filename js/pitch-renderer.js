@@ -1,0 +1,563 @@
+/**
+ * pitch-renderer.js
+ * Vektor-Taktiktafel (2D SVG Pitch Engine) für KickerCoach
+ * 
+ * Rendert gestochen scharfe, professionelle Fußball-Übungsaufbauten
+ * mit Rasenstreifen, Minitoren, Großtoren, Hütchen, Spielern, Bällen
+ * und taktischen Bewegungspfeilen (Dribbling, Pässe, Laufwege, Torschuss).
+ */
+
+const pitchRenderer = {
+  // ViewBox Abmessungen
+  width: 600,
+  height: 380,
+
+  /**
+   * Generiert eine vollständige SVG-Taktiktafel für eine Übung
+   * @param {Object} drill - Übungsobjekt (aus TrainingUnit oder soccerdrillsCatalog)
+   * @param {Object} options - Anzeigeoptionen
+   */
+  renderPitch(drill, options = {}) {
+    const layout = this.detectOrGetLayout(drill);
+    const svgContent = this.buildSvgElements(layout);
+
+    return `
+      <div class="pitch-tactics-board" data-drill-id="${drill.id || ''}">
+        <svg viewBox="0 0 ${this.width} ${this.height}" class="pitch-svg-canvas" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+          ${this.getDefs()}
+          ${this.getPitchBackground(layout.pitchType)}
+          ${svgContent}
+        </svg>
+        ${this.getLegend(layout)}
+      </div>
+    `;
+  },
+
+  /**
+   * Gemeinsame SVG-Definitionen (Pfeilspitzen, Muster, Schatten)
+   */
+  getDefs() {
+    return `
+      <defs>
+        <!-- Rasenstreifen-Muster -->
+        <pattern id="grass-stripes" width="60" height="380" patternUnits="userSpaceOnUse">
+          <rect x="0" y="0" width="30" height="380" fill="#135230" />
+          <rect x="30" y="0" width="30" height="380" fill="#165d37" />
+        </pattern>
+
+        <!-- Pfeilspitzen für taktische Pfeile -->
+        <marker id="arrow-run" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9 z" fill="#f8fafc" />
+        </marker>
+        <marker id="arrow-pass" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9 z" fill="#00d2ff" />
+        </marker>
+        <marker id="arrow-dribble" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9 z" fill="#f59e0b" />
+        </marker>
+        <marker id="arrow-shot" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#ef4444" />
+        </marker>
+
+        <!-- Tornetz-Muster -->
+        <pattern id="goal-net" width="6" height="6" patternUnits="userSpaceOnUse">
+          <rect width="6" height="6" fill="rgba(255,255,255,0.05)" />
+          <path d="M 0 0 L 6 6 M 6 0 L 0 6" stroke="rgba(255,255,255,0.4)" stroke-width="0.75" />
+        </pattern>
+
+        <!-- Schattenfilter -->
+        <filter id="drop-shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.6"/>
+        </filter>
+        <filter id="glow-shot" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#ef4444" flood-opacity="0.8"/>
+        </filter>
+      </defs>
+    `;
+  },
+
+  /**
+   * Zeichnet das Spielfeld mit Markierungen
+   */
+  getPitchBackground(pitchType = 'standard') {
+    const pad = 16;
+    const w = this.width - (pad * 2);
+    const h = this.height - (pad * 2);
+
+    let extraLines = '';
+
+    if (pitchType === 'funino' || pitchType === 'minifootball') {
+      // 6-Meter Schusszonen
+      const zoneLeft = pad + 90;
+      const zoneRight = this.width - pad - 90;
+      extraLines = `
+        <!-- Schusszonen Funino -->
+        <line x1="${zoneLeft}" y1="${pad}" x2="${zoneLeft}" y2="${this.height - pad}" stroke="rgba(255,255,255,0.45)" stroke-width="2" stroke-dasharray="6,6" />
+        <line x1="${zoneRight}" y1="${pad}" x2="${zoneRight}" y2="${this.height - pad}" stroke="rgba(255,255,255,0.45)" stroke-width="2" stroke-dasharray="6,6" />
+        <text x="${(pad + zoneLeft) / 2}" y="${pad + 18}" fill="rgba(255,255,255,0.5)" font-size="10" font-weight="700" text-anchor="middle" font-family="sans-serif">SCHUSSZONE</text>
+        <text x="${(zoneRight + this.width - pad) / 2}" y="${pad + 18}" fill="rgba(255,255,255,0.5)" font-size="10" font-weight="700" text-anchor="middle" font-family="sans-serif">SCHUSSZONE</text>
+      `;
+    } else {
+      // Klassische Mittellinie & Mittelkreis
+      extraLines = `
+        <line x1="${this.width / 2}" y1="${pad}" x2="${this.width / 2}" y2="${this.height - pad}" stroke="rgba(255,255,255,0.4)" stroke-width="2" />
+        <circle cx="${this.width / 2}" cy="${this.height / 2}" r="45" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2" />
+        <circle cx="${this.width / 2}" cy="${this.height / 2}" r="3" fill="rgba(255,255,255,0.6)" />
+      `;
+    }
+
+    return `
+      <!-- Rasenfläche mit Streifen -->
+      <rect x="0" y="0" width="${this.width}" height="${this.height}" rx="12" fill="url(#grass-stripes)" />
+      
+      <!-- Äußere Spielfeldumrandung -->
+      <rect x="${pad}" y="${pad}" width="${w}" height="${h}" rx="6" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" />
+      
+      ${extraLines}
+    `;
+  },
+
+  /**
+   * Intelligenter Layout-Detektor:
+   * Ermittelt aus Titel, Phase, Schwerpunkt oder Beschreibung die passende Taktik-Visualisierung
+   */
+  detectOrGetLayout(drill) {
+    if (drill.tacticsLayout) return drill.tacticsLayout;
+
+    const t = (drill.title || '').toLowerCase();
+    const d = (drill.description || drill.organization || '').toLowerCase();
+    const f = (drill.focus || '').toLowerCase();
+    const p = (drill.phase || '').toLowerCase();
+
+    // 1. Funino / Minifußball (3vs3 auf 4 Minitore)
+    if (t.includes('funino') || d.includes('4 minitore') || t.includes('festival') || t.includes('kaiserturnier')) {
+      return {
+        pitchType: 'funino',
+        goals: [
+          { type: 'mini', x: 22, y: 55, dir: 'right', label: 'Tor 1' },
+          { type: 'mini', x: 22, y: 285, dir: 'right', label: 'Tor 2' },
+          { type: 'mini', x: 558, y: 55, dir: 'left', label: 'Tor 3' },
+          { type: 'mini', x: 558, y: 285, dir: 'left', label: 'Tor 4' }
+        ],
+        players: [
+          // Team Blau (3 Spieler)
+          { x: 190, y: 110, team: 'blue', label: 'A1' },
+          { x: 170, y: 200, team: 'blue', label: 'A2' },
+          { x: 190, y: 290, team: 'blue', label: 'A3' },
+          // Team Rot (3 Spieler)
+          { x: 410, y: 110, team: 'red', label: 'B1' },
+          { x: 430, y: 200, team: 'red', label: 'B2' },
+          { x: 410, y: 290, team: 'red', label: 'B3' }
+        ],
+        balls: [
+          { x: 205, y: 195 }
+        ],
+        arrows: [
+          { type: 'pass', from: [190, 110], to: [175, 190] },
+          { type: 'dribble', points: [[175, 200], [250, 180], [330, 230]] },
+          { type: 'shot', from: [330, 230], to: [550, 285] }
+        ],
+        cones: []
+      };
+    }
+
+    // 2. Torschuss-Übung (mit Großtor / Torhüter)
+    if (f.includes('torschuss') || t.includes('torschuss') || t.includes('feuerwerk')) {
+      return {
+        pitchType: 'half',
+        goals: [
+          { type: 'youth', x: 550, y: 130, dir: 'left', label: 'Jugendtor' }
+        ],
+        players: [
+          { x: 535, y: 190, team: 'keeper', label: 'TW' },
+          { x: 100, y: 190, team: 'blue', label: '1' },
+          { x: 80, y: 190, team: 'blue', label: '2' },
+          { x: 60, y: 190, team: 'blue', label: '3' },
+          { x: 260, y: 100, team: 'trainer', label: 'Tr' }
+        ],
+        balls: [
+          { x: 245, y: 115 },
+          { x: 115, y: 190 }
+        ],
+        cones: [
+          { x: 220, y: 190, color: 'yellow' },
+          { x: 380, y: 140, color: 'red' },
+          { x: 380, y: 240, color: 'red' }
+        ],
+        arrows: [
+          { type: 'run', from: [115, 190], to: [320, 190] },
+          { type: 'pass', from: [250, 120], to: [325, 180] },
+          { type: 'shot', from: [335, 185], to: [540, 160] }
+        ]
+      };
+    }
+
+    // 3. 1-gegen-1 Duell (frontal oder auf Kontertore)
+    if (f.includes('1vs1') || t.includes('1-gegen-1') || t.includes('duell') || t.includes('zweikampf')) {
+      return {
+        pitchType: 'standard',
+        goals: [
+          { type: 'mini', x: 550, y: 80, dir: 'left', label: 'Tor L' },
+          { type: 'mini', x: 550, y: 260, dir: 'left', label: 'Tor R' }
+        ],
+        players: [
+          { x: 120, y: 190, team: 'blue', label: 'A' },
+          { x: 380, y: 190, team: 'red', label: 'V' }
+        ],
+        balls: [
+          { x: 135, y: 190 }
+        ],
+        cones: [
+          { x: 240, y: 140, color: 'blue' },
+          { x: 240, y: 240, color: 'blue' }
+        ],
+        arrows: [
+          { type: 'dribble', points: [[135, 190], [220, 190], [270, 150], [350, 110]] },
+          { type: 'run', from: [380, 190], to: [320, 160] },
+          { type: 'shot', from: [350, 110], to: [540, 85] }
+        ]
+      };
+    }
+
+    // 4. Passspiel & Dreiecksspiel
+    if (f.includes('pass') || t.includes('pass') || t.includes('dreieck')) {
+      return {
+        pitchType: 'standard',
+        goals: [
+          { type: 'mini', x: 550, y: 160, dir: 'left', label: 'Tor' }
+        ],
+        players: [
+          { x: 140, y: 270, team: 'blue', label: 'A' },
+          { x: 280, y: 100, team: 'blue', label: 'B' },
+          { x: 420, y: 270, team: 'blue', label: 'C' }
+        ],
+        balls: [
+          { x: 155, y: 260 }
+        ],
+        cones: [
+          { x: 140, y: 290, color: 'yellow' },
+          { x: 280, y: 80, color: 'yellow' },
+          { x: 420, y: 290, color: 'yellow' }
+        ],
+        arrows: [
+          { type: 'pass', from: [155, 260], to: [270, 115] },
+          { type: 'pass', from: [285, 115], to: [410, 260] },
+          { type: 'run', from: [140, 270], to: [270, 100] },
+          { type: 'shot', from: [425, 260], to: [540, 190] }
+        ]
+      };
+    }
+
+    // 5. Koordination & Parcours (Reifen, Hürden, Stangen)
+    if (p.includes('coord') || t.includes('parcours') || t.includes('koordination') || t.includes('dschungel') || t.includes('stangen')) {
+      return {
+        pitchType: 'standard',
+        goals: [],
+        players: [
+          { x: 60, y: 120, team: 'blue', label: 'K1' },
+          { x: 40, y: 120, team: 'blue', label: 'K2' },
+          { x: 60, y: 260, team: 'blue', label: 'K3' },
+          { x: 40, y: 260, team: 'blue', label: 'K4' }
+        ],
+        balls: [
+          { x: 75, y: 260 }
+        ],
+        cones: [
+          { x: 480, y: 120, color: 'red' },
+          { x: 480, y: 260, color: 'red' }
+        ],
+        rings: [
+          { x: 150, y: 120 },
+          { x: 190, y: 120 },
+          { x: 230, y: 120 },
+          { x: 270, y: 120 }
+        ],
+        hurdles: [
+          { x: 330, y: 120 },
+          { x: 370, y: 120 },
+          { x: 410, y: 120 }
+        ],
+        poles: [
+          { x: 160, y: 260 },
+          { x: 220, y: 240 },
+          { x: 280, y: 270 },
+          { x: 340, y: 245 },
+          { x: 400, y: 265 }
+        ],
+        arrows: [
+          { type: 'run', from: [75, 120], to: [470, 120] },
+          { type: 'dribble', points: [[75, 260], [160, 275], [220, 230], [280, 280], [340, 235], [400, 275], [470, 260]] }
+        ]
+      };
+    }
+
+    // 6. Aufwärmen & Ballgewöhnung (Hütchenwald / Fangspiel)
+    return {
+      pitchType: 'standard',
+      goals: [],
+      players: [
+        { x: 120, y: 80, team: 'blue', label: 'K' },
+        { x: 220, y: 150, team: 'blue', label: 'K' },
+        { x: 160, y: 280, team: 'blue', label: 'K' },
+        { x: 340, y: 90, team: 'blue', label: 'K' },
+        { x: 460, y: 180, team: 'blue', label: 'K' },
+        { x: 380, y: 290, team: 'blue', label: 'K' },
+        { x: 280, y: 200, team: 'red', label: 'J' }
+      ],
+      balls: [
+        { x: 135, y: 85 },
+        { x: 235, y: 155 },
+        { x: 175, y: 285 },
+        { x: 355, y: 95 },
+        { x: 475, y: 185 },
+        { x: 395, y: 295 }
+      ],
+      cones: [
+        { x: 180, y: 90, color: 'yellow' },
+        { x: 270, y: 70, color: 'blue' },
+        { x: 400, y: 130, color: 'red' },
+        { x: 130, y: 190, color: 'red' },
+        { x: 230, y: 240, color: 'yellow' },
+        { x: 320, y: 210, color: 'blue' },
+        { x: 450, y: 260, color: 'yellow' },
+        { x: 490, y: 90, color: 'blue' }
+      ],
+      arrows: [
+        { type: 'dribble', points: [[135, 85], [170, 130], [215, 90]] },
+        { type: 'run', from: [280, 200], to: [235, 170] }
+      ]
+    };
+  },
+
+  /**
+   * Baut alle SVG-Elemente (Tore, Hütchen, Ringe, Pfeile, Spieler, Bälle) zusammen
+   */
+  buildSvgElements(layout) {
+    let html = '';
+
+    // 1. Zonen / Hürden / Ringe / Stangen
+    if (layout.rings) {
+      layout.rings.forEach(r => {
+        html += `<circle cx="${r.x}" cy="${r.y}" r="12" fill="none" stroke="#38bdf8" stroke-width="3" filter="url(#drop-shadow)" />`;
+      });
+    }
+
+    if (layout.hurdles) {
+      layout.hurdles.forEach(h => {
+        html += `
+          <!-- Minihürde -->
+          <g filter="url(#drop-shadow)">
+            <line x1="${h.x - 10}" y1="${h.y}" x2="${h.x + 10}" y2="${h.y}" stroke="#facc15" stroke-width="4" stroke-linecap="round" />
+            <circle cx="${h.x - 10}" cy="${h.y}" r="2.5" fill="#ca8a04" />
+            <circle cx="${h.x + 10}" cy="${h.y}" r="2.5" fill="#ca8a04" />
+          </g>
+        `;
+      });
+    }
+
+    if (layout.poles) {
+      layout.poles.forEach(p => {
+        html += `
+          <!-- Slalomstange -->
+          <g filter="url(#drop-shadow)">
+            <circle cx="${p.x}" cy="${p.y}" r="4" fill="#ef4444" stroke="#ffffff" stroke-width="1.5" />
+            <circle cx="${p.x}" cy="${p.y}" r="8" fill="rgba(239, 68, 68, 0.2)" />
+          </g>
+        `;
+      });
+    }
+
+    // 2. Tore
+    if (layout.goals) {
+      layout.goals.forEach(g => {
+        html += this.renderGoal(g);
+      });
+    }
+
+    // 3. Markierungshütchen
+    if (layout.cones) {
+      layout.cones.forEach(c => {
+        html += this.renderCone(c);
+      });
+    }
+
+    // 4. Taktische Pfeile
+    if (layout.arrows) {
+      layout.arrows.forEach(a => {
+        html += this.renderArrow(a);
+      });
+    }
+
+    // 5. Spieler & Trainer
+    if (layout.players) {
+      layout.players.forEach(p => {
+        html += this.renderPlayer(p);
+      });
+    }
+
+    // 6. Bälle
+    if (layout.balls) {
+      layout.balls.forEach(b => {
+        html += this.renderBall(b);
+      });
+    }
+
+    return html;
+  },
+
+  /**
+   * Zeichnet ein Minitor oder Großtor
+   */
+  renderGoal(g) {
+    if (g.type === 'youth') {
+      // 5vs5 Jugendtor
+      return `
+        <g filter="url(#drop-shadow)">
+          <!-- Netz -->
+          <rect x="${g.x}" y="${g.y}" width="26" height="120" rx="3" fill="url(#goal-net)" stroke="rgba(255,255,255,0.7)" stroke-width="2" />
+          <!-- Pfosten & Latte -->
+          <line x1="${g.x}" y1="${g.y}" x2="${g.x}" y2="${g.y + 120}" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
+          <line x1="${g.x}" y1="${g.y}" x2="${g.x + 24}" y2="${g.y}" stroke="#ffffff" stroke-width="3" />
+          <line x1="${g.x}" y1="${g.y + 120}" x2="${g.x + 24}" y2="${g.y + 120}" stroke="#ffffff" stroke-width="3" />
+          <text x="${g.x + 13}" y="${g.y - 6}" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="700" text-anchor="middle" font-family="sans-serif">JUGENDTOR</text>
+        </g>
+      `;
+    }
+
+    // Minitor (Funino)
+    const isRight = g.dir === 'right';
+    const postX = isRight ? g.x : g.x;
+    const netX = isRight ? g.x - 14 : g.x + 2;
+
+    return `
+      <g filter="url(#drop-shadow)">
+        <!-- Netz -->
+        <rect x="${netX}" y="${g.y}" width="14" height="40" rx="2" fill="url(#goal-net)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" />
+        <!-- Torlinie & Pfosten -->
+        <line x1="${postX}" y1="${g.y}" x2="${postX}" y2="${g.y + 40}" stroke="#ef4444" stroke-width="3.5" stroke-linecap="round" />
+        <circle cx="${postX}" cy="${g.y}" r="2" fill="#ffffff" />
+        <circle cx="${postX}" cy="${g.y + 40}" r="2" fill="#ffffff" />
+      </g>
+    `;
+  },
+
+  /**
+   * Zeichnet ein Hütchen
+   */
+  renderCone(c) {
+    let fill = '#f59e0b'; // Gold / Gelb
+    if (c.color === 'red') fill = '#ef4444';
+    if (c.color === 'blue') fill = '#00d2ff';
+    if (c.color === 'green') fill = '#10b981';
+
+    return `
+      <g filter="url(#drop-shadow)">
+        <polygon points="${c.x},${c.y - 9} ${c.x + 8},${c.y + 5} ${c.x - 8},${c.y + 5}" fill="${fill}" stroke="#ffffff" stroke-width="0.75" />
+        <ellipse cx="${c.x}" cy="${c.y + 5}" rx="7" ry="2.5" fill="${fill}" />
+        <circle cx="${c.x}" cy="${c.y - 9}" r="1.5" fill="#ffffff" />
+      </g>
+    `;
+  },
+
+  /**
+   * Zeichnet einen Spieler-Token
+   */
+  renderPlayer(p) {
+    let bg = '#0284c7'; // Team Blau
+    let border = '#38bdf8';
+    let text = '#ffffff';
+
+    if (p.team === 'red') {
+      bg = '#dc2626';
+      border = '#f87171';
+    } else if (p.team === 'keeper') {
+      bg = '#eab308';
+      border = '#fef08a';
+      text = '#000000';
+    } else if (p.team === 'trainer') {
+      bg = '#10b981';
+      border = '#6ee7b7';
+    }
+
+    return `
+      <g filter="url(#drop-shadow)">
+        <!-- Spieler Kreis -->
+        <circle cx="${p.x}" cy="${p.y}" r="12" fill="${bg}" stroke="${border}" stroke-width="2" />
+        <!-- Spieler Label -->
+        <text x="${p.x}" y="${p.y + 4}" fill="${text}" font-size="10" font-weight="800" text-anchor="middle" font-family="'Outfit', sans-serif">
+          ${p.label || ''}
+        </text>
+      </g>
+    `;
+  },
+
+  /**
+   * Zeichnet einen Fußball
+   */
+  renderBall(b) {
+    return `
+      <g filter="url(#drop-shadow)">
+        <circle cx="${b.x}" cy="${b.y}" r="7" fill="#ffffff" stroke="#000000" stroke-width="1.2" />
+        <!-- Ballmuster -->
+        <circle cx="${b.x}" cy="${b.y}" r="2.2" fill="#000000" />
+        <path d="M ${b.x} ${b.y - 7} L ${b.x} ${b.y - 2.2} M ${b.x + 6} ${b.y + 3} L ${b.x + 1.8} ${b.y + 1.2} M ${b.x - 6} ${b.y + 3} L ${b.x - 1.8} ${b.y + 1.2}" stroke="#000000" stroke-width="1" />
+      </g>
+    `;
+  },
+
+  /**
+   * Zeichnet taktische Pfeile (Laufweg, Pass, Dribbling, Torschuss)
+   */
+  renderArrow(a) {
+    if (a.type === 'dribble') {
+      // Geschwungene Dribbel-Wellenlinie
+      let d = `M ${a.points[0][0]} ${a.points[0][1]}`;
+      for (let i = 1; i < a.points.length; i++) {
+        const prev = a.points[i - 1];
+        const curr = a.points[i];
+        const midX = (prev[0] + curr[0]) / 2;
+        const midY = (prev[1] + curr[1]) / 2 + (i % 2 === 0 ? 12 : -12);
+        d += ` Q ${midX} ${midY} ${curr[0]} ${curr[1]}`;
+      }
+      return `
+        <path d="${d}" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arrow-dribble)" filter="url(#drop-shadow)" />
+      `;
+    }
+
+    if (a.type === 'pass') {
+      // Gestrichelter Pass-Pfeil (Cyan)
+      return `
+        <line x1="${a.from[0]}" y1="${a.from[1]}" x2="${a.to[0]}" y2="${a.to[1]}" stroke="#00d2ff" stroke-width="2.5" stroke-dasharray="6,4" stroke-linecap="round" marker-end="url(#arrow-pass)" filter="url(#drop-shadow)" />
+      `;
+    }
+
+    if (a.type === 'shot') {
+      // Torschuss-Pfeil (Rot glühend)
+      return `
+        <line x1="${a.from[0]}" y1="${a.from[1]}" x2="${a.to[0]}" y2="${a.to[1]}" stroke="#ef4444" stroke-width="3" stroke-linecap="round" marker-end="url(#arrow-shot)" filter="url(#glow-shot)" />
+      `;
+    }
+
+    // Normaler Laufweg (Weiß)
+    return `
+      <line x1="${a.from[0]}" y1="${a.from[1]}" x2="${a.to[0]}" y2="${a.to[1]}" stroke="#f8fafc" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow-run)" filter="url(#drop-shadow)" />
+    `;
+  },
+
+  /**
+   * Kompakte Legende unterhalb der Taktiktafel
+   */
+  getLegend(layout) {
+    return `
+      <div class="pitch-tactics-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#ef4444;"></span> Minitor</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b;"></span> Hütchen</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#0284c7;"></span> Team Blau</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626;"></span> Team Rot</span>
+        <span class="legend-item"><span class="legend-line" style="border-top: 2px dashed #00d2ff;"></span> Pass</span>
+        <span class="legend-item"><span class="legend-line" style="border-top: 2px solid #f59e0b;"></span> Dribbling</span>
+        <span class="legend-item"><span class="legend-line" style="border-top: 2px solid #ef4444;"></span> Schuss</span>
+      </div>
+    `;
+  }
+};

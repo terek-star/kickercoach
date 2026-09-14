@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kinderfußball Coach - Spielplan- & Aufstellungs-Generator</title>
+  
+  <!-- PWA & Mobile Optimization -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#080c14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Google Fonts & FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- SIDEBAR NAVIGATION (Desktop) -->
+    <aside class="sidebar">
+      <div class="brand">
+        <i class="fa-solid fa-circle-nodes brand-icon"></i>
+        <span class="brand-name">KickerCoach</span>
+      </div>
+      
+      <nav class="nav-menu">
+        <li class="nav-item">
+          <a class="nav-link active" data-tab="dashboard-tab">
+            <i class="fa-solid fa-house-chimney"></i>
+            <span>Dashboard</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-tab="training-tab">
+            <i class="fa-solid fa-clipboard-list"></i>
+            <span>Trainingsplanung</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-tab="kader-tab">
+            <i class="fa-solid fa-users"></i>
+            <span>Kader & Teams</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-tab="spielplan-tab">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Turnier & Spielplan</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-tab="aufstellung-tab">
+            <i class="fa-solid fa-shirt"></i>
+            <span>Aufstellung & Timer</span>
+          </a>
+        </li>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <button class="theme-toggle-btn" id="feedback-open-btn" style="margin-bottom: 8px;">
+          <span>Feedback</span>
+          <i class="fa-solid fa-comment-dots" style="color: var(--primary);"></i>
+        </button>
+        <button class="theme-toggle-btn" id="gemini-settings-btn" style="margin-bottom: 8px;">
+          <span>Gemini KI</span>
+          <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--primary);"></i>
+        </button>
+        <button class="theme-toggle-btn" id="theme-toggle">
+          <span>Dunkelmodus</span>
+          <i class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- MOBILE BOTTOM NAVIGATION -->
+    <nav class="mobile-nav">
+      <a class="mobile-nav-link active" data-tab="dashboard-tab">
+        <i class="fa-solid fa-house-chimney"></i>
+        <span>Dashboard</span>
+      </a>
+      <a class="mobile-nav-link" data-tab="training-tab">
+        <i class="fa-solid fa-clipboard-list"></i>
+        <span>Training</span>
+      </a>
+      <a class="mobile-nav-link" data-tab="kader-tab">
+        <i class="fa-solid fa-users"></i>
+        <span>Kader</span>
+      </a>
+      <a class="mobile-nav-link" data-tab="spielplan-tab">
+        <i class="fa-solid fa-calendar-days"></i>
+        <span>Spielplan</span>
+      </a>
+      <a class="mobile-nav-link" data-tab="aufstellung-tab">
+        <i class="fa-solid fa-shirt"></i>
+        <span>Aufstellung</span>
+      </a>
+    </nav>
+
+    <!-- MOBILE FLOATING FEEDBACK BUTTON -->
+    <button class="feedback-floating-btn" id="mobile-feedback-btn">
+      <i class="fa-solid fa-comment-dots"></i>
+      <span>Feedback</span>
+    </button>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="main-content">
+      
+      <!-- ==================== DASHBOARD TAB ==================== -->
+      <section id="dashboard-tab" class="tab-panel active">
+        <header>
+          <div class="page-title-row">
+            <div>
+              <p class="page-subtitle">Übersicht</p>
+              <h1 class="page-title">Trainer Dashboard</h1>
+            </div>
+            <div class="header-actions" style="display: flex; gap: 10px; align-items: center;">
+              <button class="btn btn-secondary" id="dash-feedback-btn">
+                <i class="fa-solid fa-comment-dots" style="color: var(--primary);"></i>
+                <span>Feedback geben</span>
+              </button>
+              <button class="btn btn-primary" onclick="app.navigateToTab('spielplan-tab')">
+                <i class="fa-solid fa-circle-plus"></i>
+                <span>Neues Turnier</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- Stats row -->
+        <div class="stats-container">
+          <div class="glass-card stat-card stat-card-green">
+            <div class="stat-icon"><i class="fa-solid fa-user-check"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-present-players">0 / 0</span>
+              <span class="stat-label">Anwesende Spieler</span>
+            </div>
+          </div>
+          <div class="glass-card stat-card stat-card-blue">
+            <div class="stat-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-teams-count">0</span>
+              <span class="stat-label">Eigene Teams</span>
+            </div>
+          </div>
+          <div class="glass-card stat-card stat-card-gold">
+            <div class="stat-icon"><i class="fa-solid fa-trophy"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-active-tournament">-</span>
+              <span class="stat-label">Turnier-Modus</span>
+            </div>
+          </div>
+          <div class="glass-card stat-card stat-card-purple interactive" onclick="app.navigateToTab('training-tab')">
+            <div class="stat-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-training-units">8 Einheiten</span>
+              <span class="stat-label">DFB U9 Trainingsplan</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-main-sidebar">
+          
+          <!-- Live Matches overview / Quick Start -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-solid fa-circle-play"></i> Schnellstart & Anleitung</h2>
+            </div>
+            <div class="quick-start-guide" style="line-height: 1.6; color: var(--text-secondary);">
+              <p style="margin-bottom: 12px;">Willkommen bei <strong>KickerCoach</strong>, dem ultimativen Planer für den Kinderfußball! Hier sind die Schritte zum perfekten Training und Spieltag:</p>
+              <ol style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+                <li><strong>Trainingsplanung (DFB U9):</strong> 4-Wochen-Pläne nach DFB-Konzept (Aufwärmen, Koordination, Hauptteil, Funino) erstellen, soccerdrills.de Ideen übernehmen oder am Platz mit dem Phasen-Timer starten.</li>
+                <li><strong>Kader pflegen & aufteilen:</strong> Erfassen Sie Ihre Spieler im Reiter <em>Kader & Teams</em>. Setzen Sie die Sterne-Bewertung für die Spielstärke fest und haken Sie ab, wer heute anwesend ist.</li>
+                <li><strong>Turnier & Aufstellung planen:</strong> Erstellen Sie Spielpläne für Funino- & Festival-Tage und nutzen Sie den Rotationstimer für faire Spielzeiten.</li>
+              </ol>
+              <div class="quick-action-list">
+                <div class="glass-card quick-action-card interactive" onclick="app.navigateToTab('training-tab')">
+                  <div class="quick-action-content">
+                    <i class="fa-solid fa-clipboard-list quick-action-icon" style="color: var(--primary);"></i>
+                    <span class="quick-action-title">1. DFB-Trainingsplan & soccerdrills.de</span>
+                  </div>
+                  <i class="fa-solid fa-chevron-right quick-action-arrow"></i>
+                </div>
+                <div class="glass-card quick-action-card interactive" onclick="app.navigateToTab('kader-tab')">
+                  <div class="quick-action-content">
+                    <i class="fa-solid fa-users quick-action-icon"></i>
+                    <span class="quick-action-title">2. Kader & Teams verwalten</span>
+                  </div>
+                  <i class="fa-solid fa-chevron-right quick-action-arrow"></i>
+                </div>
+                <div class="glass-card quick-action-card interactive" onclick="app.navigateToTab('spielplan-tab')">
+                  <div class="quick-action-content">
+                    <i class="fa-solid fa-calendar-days quick-action-icon"></i>
+                    <span class="quick-action-title">3. Spielplan & Aufstellung</span>
+                  </div>
+                  <i class="fa-solid fa-chevron-right quick-action-arrow"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Own Club Teams Overview Widget -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-solid fa-people-group"></i> Meine Teams</h2>
+            </div>
+            <div id="dashboard-teams-list" class="team-player-list" style="max-height: 350px; overflow-y: auto;">
+              <p style="color: var(--text-muted); text-align: center; padding: 20px;">Noch keine Teams eingeteilt. Gehen Sie zum Kader-Tab.</p>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+
+      <!-- ==================== KADER & TEAMS TAB ==================== -->
+      <section id="kader-tab" class="tab-panel">
+        <header>
+          <div class="page-title-row">
+            <div>
+              <p class="page-subtitle">Kaderverwaltung</p>
+              <h1 class="page-title">Spieler & Team-Einteilung</h1>
+            </div>
+          </div>
+        </header>
+
+        <div class="grid-main-sidebar">
+          
+          <!-- Squad List -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-solid fa-id-card"></i> Kader des eigenen Vereins</h2>
+              <div class="switch-container">
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Alle anwesend</span>
+                <label class="switch">
+                  <input type="checkbox" id="toggle-all-attendance">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+            
+            <!-- Quick Add Player Form -->
+            <form id="add-player-form" class="form-row" style="margin-bottom: 24px; align-items: flex-end;">
+              <div class="form-group" style="flex: 2;">
+                <label for="player-name">Name des Spielers</label>
+                <input type="text" id="player-name" placeholder="z. B. Max Mustermann" required autocomplete="off">
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="player-strength">Stärke</label>
+                <select id="player-strength">
+                  <option value="3">⭐⭐⭐ (Stark)</option>
+                  <option value="2" selected>⭐⭐ (Mittel)</option>
+                  <option value="1">⭐ (Lernspieler)</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex: 0 0 auto;">
+                <button type="submit" class="btn btn-primary" style="height: 44px;">
+                  <i class="fa-solid fa-plus"></i> Hinzufügen
+                </button>
+              </div>
+            </form>
+
+            <!-- Squad list -->
+            <div class="kader-grid" id="squad-list-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Team Generator Config -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Team-Generator</h2>
+            </div>
+            
+            <div class="form-group">
+              <label for="team-split-count">Anzahl Teams zum Einteilen</label>
+              <select id="team-split-count">
+                <option value="1">1 Team</option>
+                <option value="2" selected>2 Teams</option>
+                <option value="3">3 Teams</option>
+                <option value="4">4 Teams</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="team-split-mode">Einteilungs-Modus</label>
+              <select id="team-split-mode">
+                <option value="homogeneous">Homogen (ausgeglichen)</option>
+                <option value="strength">Nach Stärke (Gold, Silber, Bronze)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-glow-blue" style="width: 100%; margin-bottom: 20px;" id="generate-teams-btn">
+              <i class="fa-solid fa-shuffle"></i> Teams generieren
+            </button>
+
+            <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+              <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Einteilungsergebnis</h4>
+              <div id="teams-output-container">
+                <p style="color: var(--text-muted); font-size: 14px; text-align: center; padding: 10px 0;">Noch keine Teams eingeteilt. Bitte „Teams generieren“ klicken.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+
+      <!-- ==================== TURNIER & SPIELPLAN TAB ==================== -->
+      <section id="spielplan-tab" class="tab-panel">
+        <header>
+          <div class="page-title-row">
+            <div>
+              <p class="page-subtitle">Turniermanagement</p>
+              <h1 class="page-title">Spielplan-Generator</h1>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-secondary" onclick="window.print()">
+                <i class="fa-solid fa-print"></i>
+                <span>Drucken</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div class="grid-main-sidebar">
+          
+          <!-- Tournament Config -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-solid fa-sliders"></i> Turniereinstellungen</h2>
+            </div>
+            
+            <!-- Dynamic Clubs Input -->
+            <div class="form-group">
+              <label>Teilnehmende Vereine & Teamanzahl</label>
+              <div class="club-input-row">
+                <input type="text" id="new-club-name" placeholder="Vereinsname (z. B. FC Bayern)" style="flex: 2;" autocomplete="off">
+                <input type="number" id="new-club-teams" value="1" min="1" max="6" style="flex: 1; text-align: center;">
+                <button class="btn btn-primary btn-icon-only" type="button" id="add-club-btn">
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+              </div>
+              <div class="club-list-container" id="clubs-list-container">
+                <!-- Dynamically populated clubs -->
+              </div>
+            </div>
+
+            <div class="grid-cols-2">
+              <div class="form-group">
+                <label for="tournament-mode">Turnier-Modus</label>
+                <select id="tournament-mode">
+                  <option value="kaiser">Kaiserturnier (CL-System)</option>
+                  <option value="roundrobin" selected>Jeder gegen Jeden (Liga)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="tournament-rounds">Anzahl Spielrunden</label>
+                <input type="number" id="tournament-rounds" value="5" min="1" max="12" style="text-align: center;">
+              </div>
+            </div>
+
+            <div class="grid-cols-2">
+              <div class="form-group">
+                <label for="funino-fields">Funino Spielfelder (3v3)</label>
+                <input type="number" id="funino-fields" value="2" min="0" max="6" style="text-align: center;">
+              </div>
+              <div class="form-group">
+                <label for="four-plus-one-fields">„4+1“ Spielfelder</label>
+                <input type="number" id="four-plus-one-fields" value="1" min="0" max="6" style="text-align: center;">
+              </div>
+            </div>
+
+            <button class="btn btn-glow-blue" style="width: 100%; margin-top: 10px;" id="generate-schedule-btn">
+              <i class="fa-solid fa-calendar-check"></i> Spielplan generieren
+            </button>
+          </div>
+
+          <!-- Tournament info card -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-solid fa-circle-info"></i> Status & Zusammenfassung</h2>
+            </div>
+            <div id="tournament-status-summary" style="font-size: 14px; line-height: 1.6; color: var(--text-secondary);">
+              <p>Kein aktives Turnier geladen. Tragen Sie Vereine ein und klicken Sie auf „Spielplan generieren“.</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Generated Schedule Panel (Shows after generation) -->
+        <div class="glass-card" style="margin-top: 24px;" id="schedule-results-panel">
+          <div class="card-header" style="margin-bottom: 20px;">
+            <h2 class="card-title"><i class="fa-solid fa-volleyball"></i> Spielplan & Ergebnisse</h2>
+            
+            <div id="kaiser-next-round-btn-container" style="display: none;">
+              <button class="btn btn-primary" id="kaiser-next-round-btn">
+                <i class="fa-solid fa-forward-step"></i> Nächste Runde berechnen (Auf/Abstieg)
+              </button>
+            </div>
+          </div>
+
+          <!-- Round Selector -->
+          <div class="round-navigator" id="round-navigator-box">
+            <button class="btn btn-secondary btn-icon-only" id="prev-round-btn"><i class="fa-solid fa-chevron-left"></i></button>
+            <span class="round-indicator" id="current-round-display">Runde 1</span>
+            <button class="btn btn-secondary btn-icon-only" id="next-round-btn-nav"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+
+          <!-- List of matches in round -->
+          <div class="matches-grid" id="round-matches-container">
+            <!-- Dynamically populated -->
+          </div>
+
+          <!-- League Standings Table (Only for roundrobin) -->
+          <div id="standings-table-panel" style="margin-top: 36px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-ranking-star" style="color: var(--accent);"></i> Live-Tabelle
+            </h3>
+            <div class="table-container">
+              <table class="custom-table" id="standings-table">
+                <thead>
+                  <tr>
+                    <th class="table-rank">#</th>
+                    <th>Mannschaft</th>
+                    <th class="table-stats-col">Sp.</th>
+                    <th class="table-stats-col">Diff.</th>
+                    <th class="table-stats-col">Pkt.</th>
+                  </tr>
+                </thead>
+                <tbody id="standings-table-body">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ==================== AUFSTELLUNG & TIMER TAB ==================== -->
+      <section id="aufstellung-tab" class="tab-panel">
+        
+        <!-- Live Alert Banner inside lineup planner -->
+        <div class="rotation-banner" id="rotation-banner">
+          <div class="rotation-banner-content">
+            <i class="fa-solid fa-arrows-rotate rotation-banner-icon"></i>
+            <div class="rotation-banner-text">
+              <strong>WECHSELEMPFEHLUNG!</strong><br>
+              <span id="rotation-banner-detail">Bringen Sie frische Kräfte auf den Platz.</span>
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-icon-only" style="background: rgba(0,0,0,0.1); border: none; color: #000; font-size: 16px;" onclick="lineups.dismissRotationBanner()">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <header>
+          <div class="page-title-row">
+            <div>
+              <p class="page-subtitle">Spielfeld & Wechselmanagement</p>
+              <h1 class="page-title">Mannschaftsaufstellung & Timer</h1>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-secondary" onclick="window.print()">
+                <i class="fa-solid fa-print"></i>
+                <span>Drucken</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div class="lineup-selector-row">
+          <div class="lineup-team-tabs" id="lineup-team-selector">
+            <!-- Dynamically populated team buttons: e.g. Team Gold, Team Silver -->
+            <button class="btn btn-primary">Team Gold</button>
+            <button class="btn btn-secondary">Team Silber</button>
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 0; min-width: 200px;">
+            <label for="pitch-type-selector" style="margin-bottom: 4px;">Spielfeld-Format</label>
+            <select id="pitch-type-selector" style="padding: 8px 12px;">
+              <option value="funino" selected>DFB-Funino (3v3, 4 Minitore)</option>
+              <option value="fourplusone">Spielfeld "4+1" (1 TW + 4 Feldspieler)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-main-sidebar">
+          
+          <!-- Soccer field graphical layout -->
+          <div class="soccer-pitch-container">
+            <div class="soccer-pitch" id="soccer-field">
+              
+              <!-- Center pitch markings -->
+              <div class="pitch-center-circle">
+                <div class="pitch-center-spot"></div>
+              </div>
+              
+              <!-- Strafraum markings -->
+              <div class="pitch-penalty-area-top" id="penalty-area-top" style="display: none;"></div>
+              <div class="pitch-penalty-area-bottom" id="penalty-area-bottom" style="display: none;"></div>
+              
+              <!-- Dynamic Goal Markers (Funino or 4+1 goals) -->
+              <div id="pitch-goals-container">
+                <!-- Populated dynamically via JS -->
+              </div>
+              
+              <!-- Player Drop Slots -->
+              <div id="pitch-slots-container">
+                <!-- Populated dynamically via JS -->
+              </div>
+
+            </div>
+
+            <!-- Squad reserve / Bench (Wechselbank) -->
+            <div class="bench-container glass-card">
+              <h3 class="bench-title">
+                <i class="fa-solid fa-couch"></i> 
+                <span>Auswechselbank (Spieler auf der Bank)</span>
+              </h3>
+              <div class="bench-slots" id="bench-slots-container">
+                <!-- Draggable player tokens currently on bench -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Rotation Timer sidebar control -->
+          <div class="glass-card" style="align-self: flex-start;">
+            <div class="card-header">
+              <h2 class="card-title"><i class="fa-solid fa-stopwatch"></i> Rotationstimer</h2>
+            </div>
+            
+            <div class="timer-widget">
+              <div class="timer-display-box">
+                <div class="timer-clock" id="timer-clock-display">10:00</div>
+                <div class="timer-interval-label" id="timer-interval-indicator">Intervall: 2:00</div>
+              </div>
+
+              <div class="timer-controls">
+                <button class="btn btn-primary" id="timer-play-pause-btn">
+                  <i class="fa-solid fa-play"></i> Starten
+                </button>
+                <button class="btn btn-secondary" id="timer-reset-btn">
+                  <i class="fa-solid fa-arrow-rotate-left"></i> Reset
+                </button>
+              </div>
+
+              <div class="timer-config">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="timer-total-duration">Gesamtspielzeit (Minuten)</label>
+                  <input type="number" id="timer-total-duration" value="10" min="1" max="60" style="padding: 8px 12px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="timer-rotation-interval">Wechsel-Intervall (Minuten)</label>
+                  <input type="number" id="timer-rotation-interval" value="2" min="1" max="15" style="padding: 8px 12px;">
+                </div>
+                <div class="switch-container" style="justify-content: space-between; margin-top: 8px;">
+                  <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Akustisches Signal</span>
+                  <label class="switch">
+                    <input type="checkbox" id="timer-sound-enable" checked>
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Playing Time Table / Stats inside lineup planner -->
+            <div style="border-top: 1px solid var(--border-color); margin-top: 20px; padding-top: 16px;">
+              <h4 style="font-size: 13px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-hourglass-half" style="color: var(--primary);"></i> Spielzeit-Tracker (Minuten)
+              </h4>
+              <div style="max-height: 250px; overflow-y: auto;" id="timer-playtimes-list">
+                <!-- Dynamically populated player playing times -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ==================== TRAINING TAB (DFB U9 & SOCCERDRILLS) ==================== -->
+      <section id="training-tab" class="tab-panel">
+        <header>
+          <div class="page-title-row">
+            <div>
+              <p class="page-subtitle">DFB Trainingsphilosophie Deutschland • U9 / F-Jugend</p>
+              <h1 class="page-title">Trainingsplanung</h1>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <span id="api-status-badge" class="badge badge-gold" style="cursor: pointer;" onclick="document.getElementById('gemini-settings-dialog').showModal()" title="Klicken, um Gemini API-Key zu konfigurieren">
+                <i class="fa-solid fa-key"></i> Key einrichten
+              </span>
+              <button class="btn btn-primary" onclick="training.switchSubView('generator')">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>Neuer Plan (KI)</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- SUB-NAVIGATION: Modus-Umschaltung -->
+        <div class="training-subnav">
+          <button class="training-subnav-btn active" data-view="plan">
+            <i class="fa-solid fa-calendar-check"></i>
+            <span>Wochenpläne & Einheiten</span>
+          </button>
+          <button class="training-subnav-btn" data-view="generator">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>KI-Plan-Generator</span>
+          </button>
+          <button class="training-subnav-btn" data-view="soccerdrills">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>soccerdrills.de Finder & Inspiration</span>
+          </button>
+          <button class="training-subnav-btn" data-view="pitch">
+            <i class="fa-solid fa-stopwatch"></i>
+            <span>Platz-Modus & Timer</span>
+          </button>
+        </div>
+
+        <!-- 1. VIEW: PLAN & UNITS -->
+        <div id="training-view-plan" class="training-subview-panel active">
+          <div class="week-selector-bar">
+            <div class="week-pills-list">
+              <div class="week-pill active" data-week="1">
+                <span class="week-pill-title">Woche 1</span>
+                <span class="week-pill-subtitle">Dribbling & Ballführung</span>
+              </div>
+              <div class="week-pill" data-week="2">
+                <span class="week-pill-title">Woche 2</span>
+                <span class="week-pill-subtitle">Passspiel & Erster Kontakt</span>
+              </div>
+              <div class="week-pill" data-week="3">
+                <span class="week-pill-title">Woche 3</span>
+                <span class="week-pill-subtitle">1-gegen-1 & Zweikampf</span>
+              </div>
+              <div class="week-pill" data-week="4">
+                <span class="week-pill-title">Woche 4</span>
+                <span class="week-pill-subtitle">Torschuss & Funino-Festival</span>
+              </div>
+            </div>
+            <div style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-circle-info" style="color: var(--primary);"></i> 60 Min • 16–20 Kinder • Min. Wartezeiten
+            </div>
+          </div>
+
+          <!-- Dynamic Container for Active Unit -->
+          <div id="training-plan-content"></div>
+        </div>
+
+        <!-- 2. VIEW: KI-GENERATOR -->
+        <div id="training-view-generator" class="training-subview-panel">
+          <div class="glass-card" style="padding: 28px; max-width: 800px; margin: 0 auto;">
+            <div style="display: flex; gap: 14px; align-items: center; margin-bottom: 20px;">
+              <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--primary); border-color: rgba(16, 185, 129, 0.3);">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </div>
+              <div>
+                <h2 style="font-size: 20px; font-weight: 700; color: var(--text-primary);">DFB-Trainingsplan mit Gemini KI generieren</h2>
+                <p style="font-size: 13px; color: var(--text-secondary);">Erstellt maßgeschneiderte Einheiten nach der neuen Trainingsphilosophie Deutschland.</p>
+              </div>
+            </div>
+
+            <form id="ai-plan-generator-form">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div class="form-group">
+                  <label for="gen-age-group">Altersbereich</label>
+                  <select id="gen-age-group">
+                    <option value="F-Jugend (U9)" selected>F-Jugend / U9 (ca. 8 Jahre)</option>
+                    <option value="G-Jugend (Bambini / U7)">G-Jugend / Bambini (U7)</option>
+                    <option value="E-Jugend (U11)">E-Jugend (U11)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="gen-weeks">Planungszeitraum</label>
+                  <select id="gen-weeks">
+                    <option value="4" selected>4 Wochen (8 Einheiten: Mi & Fr je 60 Min)</option>
+                    <option value="2">2 Wochen (4 Einheiten)</option>
+                    <option value="1">1 Einzelne Einheit (60 Min)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="gen-focus">Besonderer Schwerpunkt / Trainer-Notiz (Optional)</label>
+                <input type="text" id="gen-focus" placeholder="z.B. Fokus auf schwachen Fuß, Funino-Abschlussspiel mit 4 Minitoren">
+              </div>
+
+              <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px;">
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">
+                  <i class="fa-solid fa-check-double" style="color: var(--primary);"></i> Automatisch integrierte DFB-Rahmenbedingungen:
+                </div>
+                <ul style="padding-left: 20px; font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                  <li>Gruppengröße: 16 bis 20 Kinder (Aufteilung in parallele Felder, keine langen Schlangen)</li>
+                  <li>Material: Bälle Gr. 3 (1 Ball pro Kind), Hütchen, Leibchen, Stangen, Reifen, Minihürden, 4 Minitore, 2 Jugendtore</li>
+                  <li>Feste 4-Phasen-Struktur: Aufwärmen (5'), Koordination/Motorik (5'), Hauptteil (20'), Funino/Spielform (30')</li>
+                  <li>Konkrete Feldskizzen & 2-3 kindgerechte Coaching-Punkte pro Einheit</li>
+                </ul>
+              </div>
+
+              <div id="generator-status-msg" style="display: none; margin-bottom: 16px;"></div>
+
+              <div style="display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap;">
+                <button type="button" class="btn btn-outline" onclick="training.activePlan = aiService.getMasterPlan(); training.saveState(); training.switchSubView('plan'); alert('Offizieller DFB-U9 Masterplan sofort geladen!');">
+                  <i class="fa-solid fa-book-open"></i> DFB-U9 Masterplan sofort laden
+                </button>
+                <button type="submit" class="btn btn-primary" id="generator-submit-btn">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Trainingsplan generieren
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 3. VIEW: SOCCERDRILLS FINDER & SMART INGESTION -->
+        <div id="training-view-soccerdrills" class="training-subview-panel">
+          
+          <!-- Smart Link & Text Ingestion Card -->
+          <div class="glass-card" style="padding: 22px; margin-bottom: 24px; border: 1px solid rgba(0, 210, 255, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-bolt" style="color: var(--secondary); font-size: 20px;"></i>
+                <div>
+                  <h3 style="font-size: 16px; font-weight: 700; color: var(--text-primary);">Smart Link & Text-Import</h3>
+                  <p style="font-size: 12px; color: var(--text-secondary);">Link (z. B. soccerdrills.de, YouTube) oder Übungstext einfügen – die KI adaptiert die Übung für die F-Jugend U9.</p>
+                </div>
+              </div>
+              <span class="badge badge-blue">KI-Transformator</span>
+            </div>
+
+            <form id="smart-link-ingest-form">
+              <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                <input type="text" id="smart-link-input" placeholder="https://www.soccerdrills.de/... oder Freitext-Übungsbeschreibung" style="flex: 1; min-width: 250px;">
+                <select id="ingest-target-phase" style="width: auto; min-width: 170px;">
+                  <option value="warmup">Ziel: 1. Aufwärmen (5')</option>
+                  <option value="coordination">Ziel: 2. Koordination (5')</option>
+                  <option value="main" selected>Ziel: 3. Hauptteil (20')</option>
+                  <option value="game">Ziel: 4. Spielform (30')</option>
+                </select>
+                <button type="submit" class="btn btn-primary">
+                  <i class="fa-solid fa-arrow-down-to-bracket"></i> Adaptieren
+                </button>
+              </div>
+            </form>
+
+            <div id="ingest-result-preview" style="display: none;"></div>
+          </div>
+
+          <!-- Live Catalog & Search Card -->
+          <div class="glass-card soccerdrills-search-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary);">
+                  <i class="fa-solid fa-futbol" style="color: var(--primary);"></i> soccerdrills.de Übungskatalog & Suche
+                </h3>
+                <p style="font-size: 13px; color: var(--text-secondary);">Praxiserprobte Trainingsformen für die U9 – mit einem Klick in deine Einheit übernehmen.</p>
+              </div>
+              <div style="font-size: 12px; color: var(--text-muted);">
+                Direkte Verlinkung zu <a href="https://www.soccerdrills.de" target="_blank" style="color: var(--secondary); text-decoration: underline;">soccerdrills.de</a>
+              </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="form-group" style="margin-bottom: 8px;">
+              <input type="text" id="sd-search-query" placeholder="Suchbegriff eingeben (z.B. Hütchenwald, Torschuss, Fangspiel, 1vs1)...">
+            </div>
+
+            <!-- Focus Filter Chips -->
+            <div class="sd-filter-chips-container">
+              <button class="sd-filter-chip active" data-focus="all">Alle Schwerpunkte</button>
+              <button class="sd-filter-chip" data-focus="Dribbling">Dribbling</button>
+              <button class="sd-filter-chip" data-focus="Passspiel">Passspiel</button>
+              <button class="sd-filter-chip" data-focus="1vs1">1-gegen-1</button>
+              <button class="sd-filter-chip" data-focus="Torschuss">Torschuss</button>
+              <button class="sd-filter-chip" data-focus="Koordination">Koordination</button>
+              <button class="sd-filter-chip" data-focus="Spielform">Funino & Minifußball</button>
+            </div>
+          </div>
+
+          <!-- Search Results List -->
+          <div id="soccerdrills-results-list" class="drill-catalog-grid"></div>
+        </div>
+
+        <!-- 4. VIEW: PITCH MODE -->
+        <div id="training-view-pitch" class="training-subview-panel">
+          <div id="pitch-mode-container"></div>
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- GEMINI API SETTINGS DIALOG -->
+  <dialog id="gemini-settings-dialog" class="glass-dialog">
+    <div class="dialog-header">
+      <h3 style="display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--primary);"></i> Google Gemini API Einstellungen
+      </h3>
+      <button class="dialog-close-btn" onclick="document.getElementById('gemini-settings-dialog').close()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 18px;">
+      Hinterlege deinen persönlichen Google Gemini API-Key, um Trainingspläne live zu generieren, externe Links zu analysieren und automatisierte soccerdrills.de Suchen auszuführen. Der Key wird sicher und ausschließlich lokal in deinem Browser gespeichert.
+    </div>
+
+    <div class="form-group">
+      <label for="gemini-api-key-input">Gemini API Key</label>
+      <div style="position: relative;">
+        <input type="password" id="gemini-api-key-input" placeholder="AIzaSy..." style="padding-right: 40px; font-family: monospace;">
+        <button type="button" id="toggle-key-visibility-btn" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer;">
+          <i class="fa-solid fa-eye"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="gemini-model-select">Gemini Modell (wird bei 'Verbindung testen' automatisch optimiert)</label>
+      <select id="gemini-model-select">
+        <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash (Empfohlen: Neuestes schnelles Modell)</option>
+        <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Latest)</option>
+        <option value="gemini-1.5-flash-002">Gemini 1.5 Flash 002</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+        <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro (Latest)</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+      </select>
+    </div>
+
+    <div id="gemini-test-result" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px;"></div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+      <button type="button" class="btn btn-outline btn-sm" id="test-gemini-connection-btn">
+        <i class="fa-solid fa-plug"></i> Verbindung testen
+      </button>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('gemini-settings-dialog').close()">Abbrechen</button>
+        <button type="button" class="btn btn-primary btn-sm" id="save-gemini-settings-btn">
+          <i class="fa-solid fa-floppy-disk"></i> Speichern
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- FEEDBACK MODAL DIALOG -->
+  <dialog id="feedback-dialog" class="glass-dialog">
+    <div class="dialog-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="background: rgba(34, 197, 94, 0.15); color: var(--primary); width: 38px; height: 38px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+          <i class="fa-solid fa-comment-dots"></i>
+        </div>
+        <div>
+          <h3 style="margin: 0; font-size: 17px; font-weight: 700;">Feedback & Trainer-Austausch</h3>
+          <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">Hilf mit, KickerCoach für die Trainingspraxis zu verbessern!</p>
+        </div>
+      </div>
+      <button class="dialog-close-btn" onclick="document.getElementById('feedback-dialog').close()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div style="padding-top: 6px;">
+      <div class="form-group">
+        <label style="font-weight: 600; margin-bottom: 4px; display: block;">Wie gefällt dir KickerCoach bisher?</label>
+        <div class="feedback-rating-row" id="feedback-rating-container">
+          <span class="rating-star active" data-val="1">⚽</span>
+          <span class="rating-star active" data-val="2">⚽</span>
+          <span class="rating-star active" data-val="3">⚽</span>
+          <span class="rating-star active" data-val="4">⚽</span>
+          <span class="rating-star active" data-val="5">⚽</span>
+        </div>
+        <small id="feedback-rating-label" style="font-size: 12px; color: var(--primary); font-weight: 600;">Bewertung: 5 / 5 (Überragend!)</small>
+      </div>
+
+      <div class="form-group">
+        <label for="feedback-category-select">Bereich / Thema</label>
+        <select id="feedback-category-select">
+          <option value="Trainingsplanung & DFB-U9-Masterplan" selected>📋 Trainingsplanung & DFB-U9-Masterplan</option>
+          <option value="2D-Vektor-Taktiktafel (SVG)">🏟️ 2D-Taktiktafel & Spielfeldskizzen</option>
+          <option value="soccerdrills.de Finder & Inspiration">🔍 soccerdrills.de Finder & Übungen</option>
+          <option value="Turnier- & Spielplan-Generator">🏆 Turnier- & Spielplan-Generator</option>
+          <option value="Aufstellung & Timer">👕 Mannschaftsaufstellung & Wechsel-Timer</option>
+          <option value="Neuer Feature-Wunsch">💡 Neue Idee / Wunsch für die Praxis</option>
+          <option value="Fehler / Problem melden">🐛 Fehler oder Darstellungsproblem</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="feedback-trainer-name">Dein Name & Rolle / Verein (optional)</label>
+        <input type="text" id="feedback-trainer-name" placeholder="z. B. Coach Max, SV Beispielstadt (F-Jugend)">
+      </div>
+
+      <div class="form-group">
+        <label for="feedback-text">Deine Anmerkung / Vorschlag</label>
+        <textarea id="feedback-text" rows="4" placeholder="Was gefällt dir gut? Welche Übungen, Funktionen oder Einstellungen fehlen dir noch auf dem Sportplatz?" style="resize: vertical;"></textarea>
+      </div>
+
+      <div id="feedback-toast" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; background: rgba(34, 197, 94, 0.15); border: 1px solid var(--primary); color: var(--primary); font-weight: 600;">
+        <i class="fa-solid fa-check"></i> In die Zwischenablage kopiert!
+      </div>
+
+      <div style="background: rgba(255,255,255,0.03); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 18px; font-size: 12px; color: var(--text-secondary); line-height: 1.4;">
+        <i class="fa-solid fa-circle-info" style="color: var(--primary); margin-right: 4px;"></i>
+        Wähle deinen bevorzugten Kanal. Dein Feedback wird zusätzlich lokal auf dem Gerät gesichert.
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-outline btn-sm" id="feedback-copy-btn" title="Text in die Zwischenablage kopieren">
+            <i class="fa-solid fa-copy"></i> Kopieren
+          </button>
+          <button type="button" class="btn btn-sm" id="feedback-whatsapp-btn" style="background: #25D366; color: #fff; border: none; font-weight: 600;">
+            <i class="fa-brands fa-whatsapp"></i> WhatsApp
+          </button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('feedback-dialog').close()">Schließen</button>
+          <button type="button" class="btn btn-primary btn-sm" id="feedback-email-btn">
+            <i class="fa-solid fa-paper-plane"></i> Per E-Mail
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Sound effect for rotation (synthesized using Web Audio API in lineup.js to remain fully offline and standalone!) -->
+  
+  <!-- APP JAVASCRIPT MODULES -->
+  <script src="js/app.js"></script>
+  <script src="js/squad.js"></script>
+  <script src="js/schedule.js"></script>
+  <script src="js/lineup.js"></script>
+  <script src="js/soccerdrills-catalog.js"></script>
+  <script src="js/ai-service.js"></script>
+  <script src="js/pitch-renderer.js"></script>
+  <script src="js/training.js"></script>
+</body>
+</html>

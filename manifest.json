@@ -1,0 +1,22 @@
+{
+  "name": "KickerCoach - Kinderfußball",
+  "short_name": "KickerCoach",
+  "description": "Premium Generator für Spielpläne, Mannschaftsaufstellungen und Wechselmanagement im Kinderfußball.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#080c14",
+  "theme_color": "#080c14",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
