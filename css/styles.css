@@ -136,6 +136,7 @@ body {
   letter-spacing: 0.5px;
   background: linear-gradient(135deg, var(--text-primary) 30%, var(--primary) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -1656,6 +1657,7 @@ th.table-stats-col {
   color: var(--text-primary);
   background: linear-gradient(180deg, var(--text-primary) 0%, var(--text-secondary) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
 }
@@ -2365,6 +2367,7 @@ th.table-stats-col {
   margin-bottom: 12px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
