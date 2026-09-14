@@ -178,20 +178,26 @@ const app = {
 
   // Gemini API Settings Modal Controller
   setupGeminiModal() {
-    const btn = document.getElementById('gemini-settings-btn');
     const dialog = document.getElementById('gemini-settings-dialog');
-    if (!btn || !dialog) return;
+    if (!dialog) return;
 
-    btn.addEventListener('click', () => {
-      const keyInput = document.getElementById('gemini-api-key-input');
-      const modelSelect = document.getElementById('gemini-model-select');
-      const testResult = document.getElementById('gemini-test-result');
-      
-      if (keyInput) keyInput.value = aiService.getApiKey();
-      if (modelSelect) modelSelect.value = aiService.getModel();
-      if (testResult) testResult.style.display = 'none';
+    const openBtns = [
+      document.getElementById('gemini-settings-btn'),
+      document.getElementById('mobile-gemini-btn')
+    ].filter(Boolean);
 
-      dialog.showModal();
+    openBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const keyInput = document.getElementById('gemini-api-key-input');
+        const modelSelect = document.getElementById('gemini-model-select');
+        const testResult = document.getElementById('gemini-test-result');
+        
+        if (keyInput) keyInput.value = aiService.getApiKey();
+        if (modelSelect) modelSelect.value = aiService.getModel();
+        if (testResult) testResult.style.display = 'none';
+
+        dialog.showModal();
+      });
     });
 
     // Toggle key visibility
@@ -405,28 +411,41 @@ const app = {
 
   // Theme Management (Light/Dark Mode toggle)
   setupTheme() {
-    const toggleBtn = document.getElementById('theme-toggle');
-    if (!toggleBtn) return;
+    const toggleBtns = [
+      document.getElementById('theme-toggle'),
+      document.getElementById('mobile-theme-toggle')
+    ].filter(Boolean);
+    if (toggleBtns.length === 0) return;
     const root = document.documentElement;
 
     const applyTheme = (theme) => {
       if (theme === 'light') {
         root.setAttribute('data-theme', 'light');
-        toggleBtn.querySelector('span').textContent = 'Hellmodus';
-        toggleBtn.querySelector('i').className = 'fa-solid fa-sun';
+        toggleBtns.forEach(btn => {
+          const span = btn.querySelector('span');
+          if (span) span.textContent = 'Hellmodus';
+          const icon = btn.querySelector('i');
+          if (icon) icon.className = 'fa-solid fa-sun';
+        });
       } else {
         root.removeAttribute('data-theme');
-        toggleBtn.querySelector('span').textContent = 'Dunkelmodus';
-        toggleBtn.querySelector('i').className = 'fa-solid fa-moon';
+        toggleBtns.forEach(btn => {
+          const span = btn.querySelector('span');
+          if (span) span.textContent = 'Dunkelmodus';
+          const icon = btn.querySelector('i');
+          if (icon) icon.className = 'fa-solid fa-moon';
+        });
       }
     };
 
     applyTheme(this.state.theme);
 
-    toggleBtn.addEventListener('click', () => {
-      this.state.theme = this.state.theme === 'dark' ? 'light' : 'dark';
-      applyTheme(this.state.theme);
-      this.saveState();
+    toggleBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.state.theme = this.state.theme === 'dark' ? 'light' : 'dark';
+        applyTheme(this.state.theme);
+        this.saveState();
+      });
     });
   }
 };
