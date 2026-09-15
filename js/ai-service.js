@@ -52,6 +52,76 @@ const aiService = {
   },
 
   /**
+   * Bereinigt und parst JSON-Antworten von KI-Modellen sicher
+   * (Entfernt Markdown-Fences wie ```json ... ``` und extrahiert den JSON-Body)
+   */
+  parseJsonSafe(rawText) {
+    if (!rawText || typeof rawText !== 'string') {
+      throw new Error('Leere Antwort vom KI-Modell erhalten.');
+    }
+    let clean = rawText.trim();
+    clean = clean.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+    try {
+      return JSON.parse(clean);
+    } catch (e) {
+      const first = clean.indexOf('{');
+      const last = clean.lastIndexOf('}');
+      if (first !== -1 && last > first) {
+        const candidate = clean.substring(first, last + 1);
+        try {
+          return JSON.parse(candidate);
+        } catch (e2) {
+          throw new Error('Die KI-Antwort war unvollständig (abgeschnitten) oder enthielt Syntaxfehler: ' + e2.message);
+        }
+      }
+      throw new Error('Konnte kein valides JSON in der Antwort finden: ' + e.message);
+    }
+  },
+
+  /**
+   * Erstellt einen anpassbaren DFB-Entwicklungsplan (auch 100% offline einsatzbereit)
+   * Berücksichtigt die gewählte Wochenanzahl (1, 2 oder 4) und den Trainer-Schwerpunkt!
+   */
+  getAdaptedPlan({ ageGroup = 'F-Jugend (U9)', weeksCount = 4, customFocus = '' } = {}) {
+    const basePlan = this.getMasterPlan();
+    const count = Math.min(Math.max(parseInt(weeksCount, 10) || 4, 1), 4);
+    const targetUnitsCount = count === 1 ? 2 : count === 2 ? 4 : 8;
+    
+    // Klone die Einheiten und kürze auf die gewünschte Wochenanzahl
+    const units = JSON.parse(JSON.stringify(basePlan.units)).slice(0, targetUnitsCount);
+
+    if (customFocus && customFocus.trim()) {
+      const focusText = customFocus.trim();
+      units.forEach((unit, idx) => {
+        unit.focusTheme = `${unit.focusTheme} • Fokus: ${focusText}`;
+        const mainPhase = unit.phases.find(p => p.name === 'Hauptteil');
+        if (mainPhase) {
+          mainPhase.title = `${mainPhase.title} (${focusText})`;
+          mainPhase.coachingPoints = [
+            `Trainerschwerpunkt: ${focusText}`,
+            ...(mainPhase.coachingPoints || [])
+          ];
+        }
+      });
+    }
+
+    return {
+      id: 'plan-adapted-' + Date.now(),
+      title: customFocus ? `${count}-Wochen-Plan (${ageGroup}) • ${customFocus}` : `${count}-Wochen DFB-Entwicklungsplan (${ageGroup})`,
+      subtitle: `Strukturierter DFB-Plan mit ${targetUnitsCount} Einheiten (Offline angepasst)`,
+      ageGroup,
+      totalWeeks: count,
+      unitsCount: targetUnitsCount,
+      customFocus: customFocus || null,
+      createdAt: new Date().toISOString(),
+      isCustomAi: false,
+      framework: basePlan.framework,
+      units
+    };
+  },
+
+  /**
    * Ruft alle verfügbaren Modelle für den übergebenen API-Key ab
    * (Nutzt ModelService.ListModels wie von der Google API empfohlen)
    */
@@ -162,18 +232,14 @@ const aiService = {
               this.setApiKey(apiKey, candidate, ver);
               return text;
             }
-          } else {
             const errData = await response.json().catch(() => ({}));
             lastError = errData.error?.message || `HTTP ${response.status}`;
-            // Wenn 404 oder "not found" / "not supported", nächstes Modell versuchen
-            if (response.status === 404 || lastError.includes('not found') || lastError.includes('not supported')) {
-              continue;
-            } else {
-              // Bei Authentifizierungsfehlern sofort werfen
-              if (response.status === 400 && lastError.includes('API_KEY')) {
-                throw new Error(lastError);
-              }
+            // Bei ungültigem API-Key sofort abbrechen
+            if (response.status === 400 && (lastError.includes('API_KEY') || lastError.includes('key not valid'))) {
+              throw new Error(lastError);
             }
+            // Bei 404, 503 (No capacity), 429 (Quota), 500 etc. nächstes Modell aus der Fallback-Liste testen
+            continue;
           }
         } catch (netErr) {
           lastError = netErr.message;
@@ -290,116 +356,125 @@ const aiService = {
       customFocus = ''
     } = params;
 
-    // Wenn kein Key vorhanden ist, nutzen wir den hochqualitativen integrierten DFB-Masterplan
+    // 1. Prüfen, ob ein API-Key vorhanden ist
     if (!this.hasApiKey()) {
-      console.log('Kein Gemini Key hinterlegt -> Lade DFB-U9 Masterplan...');
-      return this.getMasterPlan(customFocus);
+      const err = new Error('Kein Google Gemini API-Key hinterlegt.');
+      err.code = 'NO_API_KEY';
+      throw err;
     }
+
+    const count = Math.min(Math.max(parseInt(weeksCount, 10) || 4, 1), 4);
+    const totalUnits = count === 1 ? 2 : count === 2 ? 4 : 8;
 
     const prompt = `
 Du bist ein erfahrener und lizensierter Jugend-Fußballtrainer beim DFB mit Schwerpunkt auf den Grundlagenbereich (${ageGroup}, ca. 8 Jahre alt).
-Erstelle einen strukturierten, abwechslungsreichen ${weeksCount}-Wochen-Trainingsplan (insgesamt ${weeksCount * unitsPerWeek} Einheiten).
+Erstelle einen NEUEN, strukturierten und abwechslungsreichen ${count}-Wochen-Trainingsplan mit genau ${totalUnits} Einheiten (Mittwochs und Freitags, jeweils ${durationMinutes} Minuten).
 
 Rahmenbedingungen:
-- Trainingszeiten: Mittwochs und freitags, jeweils ${durationMinutes} Minuten (17:30 – 18:30 Uhr)
-- Gruppengröße: ${groupSize} (Fokus auf minimale Wartezeiten und maximale Ballkontakte)
+- Gruppengröße: ${groupSize} (DFB-Philosophie: minimale Wartezeiten, parallele Stationen, maximale Ballkontakte)
 - Verfügbares Material: ${equipment}
-- Grundlage ist die neue „Trainingsphilosophie Deutschland“ (Minifußball, Funino, viele Ballkontakte, kleine Felder)
-${customFocus ? `- Besonderer Trainer-Schwerpunkt: ${customFocus}` : ''}
+- Grundlage: Trainingsphilosophie Deutschland (Minifußball, Funino 3 vs. 3 auf 4 Minitore mit 6m-Schusszone)
+${customFocus ? `- WICHTIGER TRAINER-SCHWERPUNKT: "${customFocus}" (Muss in den Übungen und Coaching-Punkten des Hauptteils und der Spielformen klar im Mittelpunkt stehen!)` : ''}
 
 Zeitstruktur jeder Trainingseinheit (60 Minuten):
-1. 00–05 Min.: Aufwärmen (abwechselnd Fangspiele, Parteiball oder spielerische Ballgewöhnung)
+1. 00–05 Min.: Aufwärmen (Fangspiele, Parteiball oder spielerische Ballgewöhnung)
 2. 05–10 Min.: Kindgerechte Stabilisation, Koordination & Motorik (spielerisch verpackt mit Reifen/Stangen/Hürden)
-3. 10–30 Min.: Hauptteil mit wöchentlich wechselndem Schwerpunkt:
-   * Woche 1: Technik & Dribbling mit Richtungswechsel
-   * Woche 2: Passspiel & Erster Kontakt
-   * Woche 3: 1-gegen-1 & Zweikampf
-   * Woche 4: Torschuss & Zielstrebigkeit
-4. 30–60 Min.: Spielformen & Abschlussspiel (Funino 3 vs. 3 auf 4 Minitore mit Schusszone oder 5 vs. 5)
+3. 10–30 Min.: Hauptteil mit Schwerpunkt (${customFocus || 'altersgerechte Technik, Dribbling, Passspiel oder 1v1'})
+4. 30–60 Min.: Spielformen & Funino 3 vs. 3 auf 4 Minitore
 
-Anforderungen an die Ausgabe:
-Gib das Ergebnis AUSSCHLIESSLICH als valides JSON zurück mit folgendem Schema:
+ANFORDERUNG AN DAS FORMAT:
+Gib das Ergebnis AUSSCHLIESSLICH als valides JSON zurück. Keine Begrüßung, kein Markdown-Codeblock vor oder nach dem JSON.
+Schema:
 {
-  "title": "${weeksCount}-Wochen Entwicklungsplan DFB ${ageGroup}",
+  "title": "${count}-Wochen Entwicklungsplan DFB ${ageGroup}${customFocus ? ' • ' + customFocus : ''}",
   "ageGroup": "${ageGroup}",
-  "totalWeeks": ${weeksCount},
+  "totalWeeks": ${count},
+  "customFocus": "${customFocus || ''}",
   "units": [
     {
-      "id": "unit-1",
+      "id": "u1",
       "week": 1,
       "unitNumber": 1,
       "dayOfWeek": "Mittwoch",
+      "dateDisplay": "Woche 1 • Mittwoch (17:30 - 18:30)",
       "durationMinutes": 60,
       "focusTheme": "Thema der Einheit",
       "targetGroupSize": "${groupSize}",
-      "equipment": ["Material 1", "Material 2"],
+      "equipment": ["Bälle Gr. 3", "Hütchen", "4 Minitore"],
       "phases": [
         {
           "name": "Aufwärmen",
           "durationMinutes": 5,
           "title": "Übungsname",
-          "organization": "Organisation der Felder & minimale Standzeiten",
-          "drillRules": "Regeln und Ablauf für Kinder",
-          "fieldDiagram": "ASCII Skizze des Feldes mit Toren, Hütchen, Bällen und Spielern",
+          "organization": "Feldaufbau und minimale Wartezeiten",
+          "drillRules": "Kindgerechte Spielregeln",
+          "fieldDiagram": "Kompakte ASCII-Skizze (4-6 Zeilen)",
           "sourceUrl": "https://www.soccerdrills.de"
         },
         {
           "name": "Koordination & Motorik",
           "durationMinutes": 5,
           "title": "Übungsname",
-          "organization": "...",
-          "drillRules": "...",
-          "fieldDiagram": "...",
+          "organization": "Stationsaufbau",
+          "drillRules": "Ablauf für Kinder",
+          "fieldDiagram": "",
           "sourceUrl": ""
         },
         {
           "name": "Hauptteil",
           "durationMinutes": 20,
           "title": "Übungsname",
-          "organization": "...",
-          "drillRules": "...",
-          "fieldDiagram": "...",
+          "organization": "Parallele Trainingszonen",
+          "drillRules": "Ablauf",
+          "fieldDiagram": "Kompakte ASCII-Skizze",
           "sourceUrl": ""
         },
         {
           "name": "Spielformen & Abschlussspiel",
           "durationMinutes": 30,
-          "title": "Übungsname (Funino)",
-          "organization": "...",
-          "drillRules": "...",
-          "fieldDiagram": "...",
+          "title": "Funino 3v3 mit Schusszone",
+          "organization": "Spielfeld mit 4 Minitoren",
+          "drillRules": "Funino-Regeln",
+          "fieldDiagram": "",
           "sourceUrl": ""
         }
       ],
       "coachingPoints": [
-        "Kindgerechter Coaching-Punkt 1",
-        "Kindgerechter Coaching-Punkt 2",
-        "Kindgerechter Coaching-Punkt 3"
+        "Coaching-Punkt 1",
+        "Coaching-Punkt 2",
+        "Coaching-Punkt 3"
       ]
     }
   ]
 }
 `.trim();
 
-    try {
-      const rawText = await this.callGemini({
-        prompt: prompt,
-        generationConfig: {
-          responseMimeType: 'application/json'
+    const rawText = await this.callGemini({
+      prompt: prompt,
+      generationConfig: {
+        maxOutputTokens: 8192
+      }
+    });
+
+    const parsedPlan = this.parseJsonSafe(rawText);
+    parsedPlan.id = 'plan-ai-' + Date.now();
+    parsedPlan.createdAt = new Date().toISOString();
+    parsedPlan.isCustomAi = true;
+    
+    // Einheitennummerierung und IDs vereinheitlichen
+    if (parsedPlan.units && Array.isArray(parsedPlan.units)) {
+      parsedPlan.units.forEach((u, idx) => {
+        if (!u.id) u.id = `unit-${idx + 1}`;
+        if (!u.week) u.week = Math.floor(idx / 2) + 1;
+        if (!u.unitNumber) u.unitNumber = idx + 1;
+        if (!u.dateDisplay) {
+          const day = idx % 2 === 0 ? 'Mittwoch' : 'Freitag';
+          u.dateDisplay = `Woche ${u.week} • ${day} (17:30 - 18:30)`;
         }
       });
-
-      const parsedPlan = JSON.parse(rawText);
-      parsedPlan.id = 'plan-' + Date.now();
-      parsedPlan.createdAt = new Date().toISOString();
-      return parsedPlan;
-
-    } catch (err) {
-      console.warn('Gemini Generierung fehlgeschlagen, nutze Fallback-Masterplan:', err);
-      const fallback = this.getMasterPlan(customFocus);
-      fallback.warning = `Online-Generierung fehlgeschlagen (${err.message}). Der offizielle DFB-U9 Masterplan wurde geladen.`;
-      return fallback;
     }
+
+    return parsedPlan;
   },
 
   /**

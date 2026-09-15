@@ -617,12 +617,46 @@ const training = {
     const submitBtn = document.getElementById('generator-submit-btn');
     
     const weeksCount = parseInt(document.getElementById('gen-weeks').value, 10) || 4;
-    const customFocus = document.getElementById('gen-focus').value || '';
-    const ageGroup = document.getElementById('gen-age-group').value || 'F-Jugend (U9)';
+    const customFocus = (document.getElementById('gen-focus')?.value || '').trim();
+    const ageGroup = document.getElementById('gen-age-group')?.value || 'F-Jugend (U9)';
+
+    // 1. Wenn kein Gemini API-Key hinterlegt ist: Dem Trainer eine klare Wahl bieten!
+    if (!aiService.hasApiKey()) {
+      if (statusBox) {
+        statusBox.style.display = 'block';
+        statusBox.innerHTML = `
+          <div style="background: rgba(234, 179, 8, 0.12); border: 1px solid var(--accent); border-radius: var(--radius-sm); padding: 16px; margin-top: 10px;">
+            <div style="font-weight: 700; font-size: 15px; color: var(--accent); margin-bottom: 6px;">
+              <i class="fa-solid fa-key"></i> Kein Google Gemini API-Key hinterlegt
+            </div>
+            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+              Auf diesem Gerät ist noch kein Google Gemini API-Key gespeichert. Für echte, individuelle KI-Trainingspläne kannst du deinen kostenlosen Key mit einem Klick hinterlegen – oder den DFB-Plan sofort offline anpassen.
+            </p>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-primary btn-sm" id="btn-open-gemini-key">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> API-Key jetzt hinterlegen
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-create-offline-plan">
+                <i class="fa-solid fa-sliders"></i> DFB-Plan offline anpassen (${weeksCount} Wo.)
+              </button>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('btn-open-gemini-key')?.addEventListener('click', () => {
+          document.getElementById('gemini-settings-dialog')?.showModal();
+        });
+
+        document.getElementById('btn-create-offline-plan')?.addEventListener('click', () => {
+          this.applyAdaptedPlan({ ageGroup, weeksCount, customFocus });
+        });
+      }
+      return;
+    }
 
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generiere Trainingsplan...';
+      submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generiere Trainingsplan mit KI...';
     }
 
     if (statusBox) {
@@ -630,7 +664,7 @@ const training = {
       statusBox.innerHTML = `
         <div class="loading-state">
           <i class="fa-solid fa-wand-magic-sparkles fa-spin"></i>
-          <span>Erstelle DFB-konformen ${weeksCount}-Wochen-Plan für ${ageGroup} mit Gemini KI...</span>
+          <span>Gemini KI erstellt maßgeschneiderten ${weeksCount}-Wochen-Plan für ${ageGroup}...</span>
         </div>
       `;
     }
@@ -650,7 +684,7 @@ const training = {
       if (statusBox) {
         statusBox.innerHTML = `
           <div class="success-msg" style="padding: 12px;">
-            <i class="fa-solid fa-circle-check"></i> Plan erfolgreich erstellt! 8 Einheiten bereit.
+            <i class="fa-solid fa-circle-check"></i> Neuer individueller KI-Trainingsplan (${plan.units.length} Einheiten) erfolgreich generiert!
           </div>
         `;
       }
@@ -660,19 +694,64 @@ const training = {
       }, 1000);
 
     } catch (err) {
+      console.error('Plan-Generierung fehlgeschlagen:', err);
       if (statusBox) {
         statusBox.innerHTML = `
-          <div class="error-msg" style="padding: 12px;">
-            <i class="fa-solid fa-triangle-exclamation"></i> Fehler: ${err.message}
+          <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid var(--danger); border-radius: var(--radius-sm); padding: 14px; margin-top: 10px;">
+            <div style="font-weight: 700; font-size: 14px; color: var(--danger); margin-bottom: 6px;">
+              <i class="fa-solid fa-triangle-exclamation"></i> KI-Generierung fehlgeschlagen
+            </div>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
+              ${err.message || 'Die Antwort der Gemini API konnte nicht verarbeitet werden.'}
+            </p>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-retry-ai-gen">
+                <i class="fa-solid fa-rotate-right"></i> Erneut versuchen
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-fallback-offline">
+                <i class="fa-solid fa-book-open"></i> Plan offline anpassen (${weeksCount} Wo.)
+              </button>
+            </div>
           </div>
         `;
+
+        document.getElementById('btn-retry-ai-gen')?.addEventListener('click', () => {
+          this.handleGeneratePlanSubmit();
+        });
+
+        document.getElementById('btn-fallback-offline')?.addEventListener('click', () => {
+          this.applyAdaptedPlan({ ageGroup, weeksCount, customFocus });
+        });
       }
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 4-Wochen-Trainingsplan generieren';
+        submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Trainingsplan generieren';
       }
     }
+  },
+
+  /**
+   * Wendet den anpassbaren DFB-Plan sofort lokal an (für Offline-Nutzung oder wenn kein Key hinterlegt ist)
+   */
+  applyAdaptedPlan({ ageGroup, weeksCount, customFocus }) {
+    const plan = aiService.getAdaptedPlan({ ageGroup, weeksCount, customFocus });
+    this.activePlan = plan;
+    this.activeWeek = 1;
+    this.activeUnitId = plan.units[0]?.id || null;
+    this.saveState();
+    
+    const statusBox = document.getElementById('generator-status-msg');
+    if (statusBox) {
+      statusBox.innerHTML = `
+        <div class="success-msg" style="padding: 12px;">
+          <i class="fa-solid fa-circle-check"></i> Plan angepasst und geladen (${plan.units.length} Einheiten)!
+        </div>
+      `;
+    }
+    setTimeout(() => {
+      this.switchSubView('plan');
+    }, 800);
   },
 
   // ================= PITCH MODE & LIVE TIMER =================
