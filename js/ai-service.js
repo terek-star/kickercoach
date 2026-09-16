@@ -53,29 +53,55 @@ const aiService = {
 
   /**
    * Bereinigt und parst JSON-Antworten von KI-Modellen sicher
-   * (Entfernt Markdown-Fences wie ```json ... ``` und extrahiert den JSON-Body)
+   * Unterstützt Markdown-Fences, sanitisiert Newlines in Strings, korrigiert Trailing-Commas
+   * und bietet automatische Fallback-Adaption
    */
-  parseJsonSafe(rawText) {
+  parseJsonSafe(rawText, fallbackParams = null) {
     if (!rawText || typeof rawText !== 'string') {
+      if (fallbackParams) {
+        return this.getAdaptedPlan(fallbackParams);
+      }
       throw new Error('Leere Antwort vom KI-Modell erhalten.');
     }
-    let clean = rawText.trim();
-    clean = clean.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
 
+    let text = rawText.trim();
+
+    // 1. Wenn Markdown-Codeblöcke vorhanden sind, extrahiere den Inhalt
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (fenceMatch && fenceMatch[1]) {
+      text = fenceMatch[1].trim();
+    }
+
+    // 2. Extrahiere äußerste geschweifte Klammern { ... }
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      text = text.substring(firstBrace, lastBrace + 1);
+    }
+
+    // 3. Häufige KI-Syntaxfehler bereinigen: Trailing commas vor schließenden Klammern
+    text = text.replace(/,\s*([\]}])/g, '$1');
+
+    // 4. Versuche, JSON direkt zu parsen
     try {
-      return JSON.parse(clean);
-    } catch (e) {
-      const first = clean.indexOf('{');
-      const last = clean.lastIndexOf('}');
-      if (first !== -1 && last > first) {
-        const candidate = clean.substring(first, last + 1);
-        try {
-          return JSON.parse(candidate);
-        } catch (e2) {
-          throw new Error('Die KI-Antwort war unvollständig (abgeschnitten) oder enthielt Syntaxfehler: ' + e2.message);
+      return JSON.parse(text);
+    } catch (e1) {
+      // 5. Versuch mit Reparatur von nicht-escapten Zeilenumbrüchen innerhalb von String-Literalen
+      try {
+        const sanitized = text.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (match) => {
+          return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+        });
+        return JSON.parse(sanitized);
+      } catch (e2) {
+        console.warn('JSON-Parsing fehlgeschlagen:', e1.message, 'rawText:', rawText);
+        if (fallbackParams) {
+          console.info('Nutze adaptierten DFB-Plan als sicheren Fallback...');
+          const fallback = this.getAdaptedPlan(fallbackParams);
+          fallback.aiWarning = 'Die KI-Antwort enthielt Textformatierungen. Der Plan wurde automatisch an deine Kriterien angepasst.';
+          return fallback;
         }
+        throw new Error('Konnte kein valides JSON in der Antwort finden: ' + e1.message);
       }
-      throw new Error('Konnte kein valides JSON in der Antwort finden: ' + e.message);
     }
   },
 
@@ -86,30 +112,56 @@ const aiService = {
   getAdaptedPlan({ ageGroup = 'F-Jugend (U9)', weeksCount = 4, customFocus = '' } = {}) {
     const basePlan = this.getMasterPlan();
     const count = Math.min(Math.max(parseInt(weeksCount, 10) || 4, 1), 4);
-    const targetUnitsCount = count === 1 ? 2 : count === 2 ? 4 : 8;
+    const targetUnitsCount = count === 1 ? 1 : count === 2 ? 4 : 8;
     
-    // Klone die Einheiten und kürze auf die gewünschte Wochenanzahl
+    // Klone die Einheiten und kürze auf die gewünschte Einheitenanzahl
     const units = JSON.parse(JSON.stringify(basePlan.units)).slice(0, targetUnitsCount);
 
-    if (customFocus && customFocus.trim()) {
-      const focusText = customFocus.trim();
-      units.forEach((unit, idx) => {
-        unit.focusTheme = `${unit.focusTheme} • Fokus: ${focusText}`;
+    const isBambini = ageGroup.includes('Bambini') || ageGroup.includes('G-Jugend') || ageGroup.includes('U7');
+
+    units.forEach((unit, idx) => {
+      unit.id = `unit-${idx + 1}`;
+      unit.unitNumber = idx + 1;
+      unit.week = count === 1 ? 1 : Math.floor(idx / 2) + 1;
+      
+      if (count === 1) {
+        unit.dateDisplay = `Trainingseinheit • Mittwoch (17:30 - 18:30)`;
+      }
+
+      if (isBambini) {
+        unit.targetGroupSize = '12 bis 16 Kinder (Kleingruppen)';
+        unit.equipment = ['Bälle Gr. 3 (Leichtball 290g)', 'Hütchen', '4 Minitore', 'Markierungshauben'];
+        if (unit.phases[0]) {
+          unit.phases[0].title = 'Fangspiel: Zauberer & Feen (Viel Bewegung)';
+        }
+        if (unit.phases[1]) {
+          unit.phases[1].title = 'Bewegungsbaustelle: Zauberwald überqueren';
+        }
+      }
+
+      if (customFocus && customFocus.trim()) {
+        const focusText = customFocus.trim();
+        unit.focusTheme = `${focusText} • ${isBambini ? 'Spielerisch & Kindgerecht' : 'DFB Schwerpunkt'}`;
         const mainPhase = unit.phases.find(p => p.name === 'Hauptteil');
         if (mainPhase) {
-          mainPhase.title = `${mainPhase.title} (${focusText})`;
+          mainPhase.title = `${focusText} (${isBambini ? 'Bambini-Spielform' : 'Parallele Stationen'})`;
           mainPhase.coachingPoints = [
             `Trainerschwerpunkt: ${focusText}`,
-            ...(mainPhase.coachingPoints || [])
+            isBambini ? 'Mut belohnen und jedes Kind mitnehmen' : 'Kopf heben und Überblick behalten',
+            'Beide Füße aktiv ausprobieren'
           ];
         }
-      });
-    }
+      }
+    });
+
+    const titleText = count === 1
+      ? (customFocus ? `Trainingseinheit (${ageGroup}) • ${customFocus}` : `DFB-Trainingseinheit (${ageGroup})`)
+      : (customFocus ? `${count}-Wochen-Plan (${ageGroup}) • ${customFocus}` : `${count}-Wochen DFB-Entwicklungsplan (${ageGroup})`);
 
     return {
       id: 'plan-adapted-' + Date.now(),
-      title: customFocus ? `${count}-Wochen-Plan (${ageGroup}) • ${customFocus}` : `${count}-Wochen DFB-Entwicklungsplan (${ageGroup})`,
-      subtitle: `Strukturierter DFB-Plan mit ${targetUnitsCount} Einheiten (Offline angepasst)`,
+      title: titleText,
+      subtitle: count === 1 ? `1 Einheit (60 Min) für ${ageGroup}` : `${count}-Wochen-Plan (${targetUnitsCount} Einheiten) für ${ageGroup}`,
       ageGroup,
       totalWeeks: count,
       unitsCount: targetUnitsCount,
@@ -232,8 +284,18 @@ const aiService = {
               this.setApiKey(apiKey, candidate, ver);
               return text;
             }
+          } else {
             const errData = await response.json().catch(() => ({}));
             lastError = errData.error?.message || `HTTP ${response.status}`;
+
+            // Wenn responseMimeType von einem älteren Modell/Endpoint abgelehnt wird, ohne wiederholen
+            if (response.status === 400 && generationConfig && generationConfig.responseMimeType && 
+               (lastError.includes('response_mime_type') || lastError.includes('responseMimeType') || lastError.includes('generation_config'))) {
+              const stripped = { ...generationConfig };
+              delete stripped.responseMimeType;
+              return this.callGemini({ prompt, preferredModel: candidate, generationConfig: stripped });
+            }
+
             // Bei ungültigem API-Key sofort abbrechen
             if (response.status === 400 && (lastError.includes('API_KEY') || lastError.includes('key not valid'))) {
               throw new Error(lastError);
@@ -364,41 +426,52 @@ const aiService = {
     }
 
     const count = Math.min(Math.max(parseInt(weeksCount, 10) || 4, 1), 4);
-    const totalUnits = count === 1 ? 2 : count === 2 ? 4 : 8;
+    const isSingleUnit = count === 1;
+    const totalUnits = isSingleUnit ? 1 : count === 2 ? 4 : 8;
+
+    let ageGroupContext = 'DFB F-Jugend / U9 (ca. 7–8 Jahre alt)';
+    let ageGuideline = 'Minifußball 3 vs. 3 auf 4 Minitore mit 6m-Schusszone, viele Ballkontakte, minimale Wartezeiten.';
+    if (ageGroup.includes('Bambini') || ageGroup.includes('G-Jugend') || ageGroup.includes('U7')) {
+      ageGroupContext = 'DFB G-Jugend / Bambini (U7, ca. 5–6 Jahre alt)';
+      ageGuideline = 'Bambini-Spielewelt: Fantasievolle Bewegungsgeschichten (Zauberer, Tiere), Tummelspiele, 2v2 oder 3v3 auf 4 Minitore. Wichtig: Kinder haben noch keinen peripheren Blick; Ballführ- und Torschuss-Spiele im Vordergrund!';
+    } else if (ageGroup.includes('E-Jugend') || ageGroup.includes('U11')) {
+      ageGroupContext = 'DFB E-Jugend (U11, ca. 9–10 Jahre alt)';
+      ageGuideline = 'Technik & Spielübersicht: Schnelles Umschalten, Passspiel, 1-gegen-1 offensiv/defensiv, Funino 4v4 oder Kleinfeld 5v5.';
+    }
 
     const prompt = `
-Du bist ein erfahrener und lizensierter Jugend-Fußballtrainer beim DFB mit Schwerpunkt auf den Grundlagenbereich (${ageGroup}, ca. 8 Jahre alt).
-Erstelle einen NEUEN, strukturierten und abwechslungsreichen ${count}-Wochen-Trainingsplan mit genau ${totalUnits} Einheiten (Mittwochs und Freitags, jeweils ${durationMinutes} Minuten).
+Du bist ein erfahrener und lizenzierter DFB-Kindertrainer.
+Erstelle für den Bereich ${ageGroupContext} ${isSingleUnit ? 'genau 1 maßgeschneiderte Trainingseinheit (60 Minuten)' : `einen ${count}-Wochen-Trainingsplan mit insgesamt ${totalUnits} Einheiten (Mittwochs und Freitags, jeweils ${durationMinutes} Minuten)`}.
 
-Rahmenbedingungen:
-- Gruppengröße: ${groupSize} (DFB-Philosophie: minimale Wartezeiten, parallele Stationen, maximale Ballkontakte)
+Altersgerechte Leitlinie des DFB:
+${ageGuideline}
+- Gruppengröße: ${groupSize} (Aufteilung in kleine parallele Stationen, damit kein Kind ansteht)
 - Verfügbares Material: ${equipment}
-- Grundlage: Trainingsphilosophie Deutschland (Minifußball, Funino 3 vs. 3 auf 4 Minitore mit 6m-Schusszone)
-${customFocus ? `- WICHTIGER TRAINER-SCHWERPUNKT: "${customFocus}" (Muss in den Übungen und Coaching-Punkten des Hauptteils und der Spielformen klar im Mittelpunkt stehen!)` : ''}
+${customFocus ? `- TRAINER-SCHWERPUNKT: "${customFocus}". Integriere diesen Schwerpunkt altersgerecht und spielerisch in den Hauptteil und die Spielform. Verweigere den Schwerpunkt keinesfalls, sondern passe ihn kindgemäß an (z. B. "Passspiel" bei Bambini/U7 als Bälle ins Partner-Tor schieben oder Tor-Schuss-Freunde)!` : ''}
 
-Zeitstruktur jeder Trainingseinheit (60 Minuten):
-1. 00–05 Min.: Aufwärmen (Fangspiele, Parteiball oder spielerische Ballgewöhnung)
-2. 05–10 Min.: Kindgerechte Stabilisation, Koordination & Motorik (spielerisch verpackt mit Reifen/Stangen/Hürden)
-3. 10–30 Min.: Hauptteil mit Schwerpunkt (${customFocus || 'altersgerechte Technik, Dribbling, Passspiel oder 1v1'})
-4. 30–60 Min.: Spielformen & Funino 3 vs. 3 auf 4 Minitore
+Zeitstruktur jeder 60-minütigen Einheit:
+1. 00–05 Min.: Aufwärmen (Bewegungsspiel, Fangspiel oder Ballgewöhnung)
+2. 05–10 Min.: Motorik & Koordination (altersgerechte Bewegungsbaustelle mit Reifen/Stangen/Hütchen)
+3. 10–30 Min.: Hauptteil mit Schwerpunkt (${customFocus || 'Dribbling, Schießen oder Spiel mit Ball'})
+4. 30–60 Min.: Spielformen & Abschlussspiel (Funino auf 4 Minitore)
 
-ANFORDERUNG AN DAS FORMAT:
-Gib das Ergebnis AUSSCHLIESSLICH als valides JSON zurück. Keine Begrüßung, kein Markdown-Codeblock vor oder nach dem JSON.
+FORMAT-VORGABE:
+Antworte AUSSCHLIESSLICH als valides JSON-Objekt ohne Erklärungen oder Begrüßung.
 Schema:
 {
-  "title": "${count}-Wochen Entwicklungsplan DFB ${ageGroup}${customFocus ? ' • ' + customFocus : ''}",
+  "title": "${isSingleUnit ? `Trainingseinheit (${ageGroup})` + (customFocus ? ' • ' + customFocus : '') : `${count}-Wochen-Plan (${ageGroup})` + (customFocus ? ' • ' + customFocus : '')}",
   "ageGroup": "${ageGroup}",
   "totalWeeks": ${count},
   "customFocus": "${customFocus || ''}",
   "units": [
     {
-      "id": "u1",
+      "id": "unit-1",
       "week": 1,
       "unitNumber": 1,
       "dayOfWeek": "Mittwoch",
-      "dateDisplay": "Woche 1 • Mittwoch (17:30 - 18:30)",
+      "dateDisplay": "${isSingleUnit ? 'Trainingseinheit • Mittwoch (17:30 - 18:30)' : 'Woche 1 • Mittwoch (17:30 - 18:30)'}",
       "durationMinutes": 60,
-      "focusTheme": "Thema der Einheit",
+      "focusTheme": "${customFocus ? customFocus + ' spielerisch vermitteln' : 'Ballgewöhnung & Spielfreude'}",
       "targetGroupSize": "${groupSize}",
       "equipment": ["Bälle Gr. 3", "Hütchen", "4 Minitore"],
       "phases": [
@@ -408,7 +481,7 @@ Schema:
           "title": "Übungsname",
           "organization": "Feldaufbau und minimale Wartezeiten",
           "drillRules": "Kindgerechte Spielregeln",
-          "fieldDiagram": "Kompakte ASCII-Skizze (4-6 Zeilen)",
+          "fieldDiagram": "Kompakte Feldskizze (4 Zeilen ASCII)",
           "sourceUrl": "https://www.soccerdrills.de"
         },
         {
@@ -426,13 +499,13 @@ Schema:
           "title": "Übungsname",
           "organization": "Parallele Trainingszonen",
           "drillRules": "Ablauf",
-          "fieldDiagram": "Kompakte ASCII-Skizze",
+          "fieldDiagram": "Kompakte Feldskizze (4 Zeilen ASCII)",
           "sourceUrl": ""
         },
         {
           "name": "Spielformen & Abschlussspiel",
           "durationMinutes": 30,
-          "title": "Funino 3v3 mit Schusszone",
+          "title": "Funino auf 4 Minitore",
           "organization": "Spielfeld mit 4 Minitoren",
           "drillRules": "Funino-Regeln",
           "fieldDiagram": "",
@@ -440,41 +513,55 @@ Schema:
         }
       ],
       "coachingPoints": [
-        "Coaching-Punkt 1",
-        "Coaching-Punkt 2",
-        "Coaching-Punkt 3"
+        "Kindgerechter Tipp 1",
+        "Kindgerechter Tipp 2",
+        "Kindgerechter Tipp 3"
       ]
     }
   ]
 }
 `.trim();
 
-    const rawText = await this.callGemini({
-      prompt: prompt,
-      generationConfig: {
-        maxOutputTokens: 8192
-      }
-    });
-
-    const parsedPlan = this.parseJsonSafe(rawText);
-    parsedPlan.id = 'plan-ai-' + Date.now();
-    parsedPlan.createdAt = new Date().toISOString();
-    parsedPlan.isCustomAi = true;
-    
-    // Einheitennummerierung und IDs vereinheitlichen
-    if (parsedPlan.units && Array.isArray(parsedPlan.units)) {
-      parsedPlan.units.forEach((u, idx) => {
-        if (!u.id) u.id = `unit-${idx + 1}`;
-        if (!u.week) u.week = Math.floor(idx / 2) + 1;
-        if (!u.unitNumber) u.unitNumber = idx + 1;
-        if (!u.dateDisplay) {
-          const day = idx % 2 === 0 ? 'Mittwoch' : 'Freitag';
-          u.dateDisplay = `Woche ${u.week} • ${day} (17:30 - 18:30)`;
+    try {
+      const rawText = await this.callGemini({
+        prompt: prompt,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 8192,
+          temperature: 0.3
         }
       });
-    }
 
-    return parsedPlan;
+      const parsedPlan = this.parseJsonSafe(rawText, { ageGroup, weeksCount: count, customFocus });
+      parsedPlan.id = 'plan-ai-' + Date.now();
+      parsedPlan.createdAt = new Date().toISOString();
+      parsedPlan.isCustomAi = true;
+      
+      // Einheitennummerierung und IDs vereinheitlichen
+      if (parsedPlan.units && Array.isArray(parsedPlan.units)) {
+        parsedPlan.units.forEach((u, idx) => {
+          if (!u.id) u.id = `unit-${idx + 1}`;
+          if (!u.week) u.week = isSingleUnit ? 1 : Math.floor(idx / 2) + 1;
+          if (!u.unitNumber) u.unitNumber = idx + 1;
+          if (!u.dateDisplay) {
+            if (isSingleUnit) {
+              u.dateDisplay = `Trainingseinheit • Mittwoch (17:30 - 18:30)`;
+            } else {
+              const day = idx % 2 === 0 ? 'Mittwoch' : 'Freitag';
+              u.dateDisplay = `Woche ${u.week} • ${day} (17:30 - 18:30)`;
+            }
+          }
+        });
+      }
+
+      return parsedPlan;
+    } catch (apiErr) {
+      console.warn('KI-Aufruf fehlgeschlagen. Aktiviere intelligenten DFB-Offline-Plan:', apiErr.message);
+      // Wenn Netzwerkfehler oder Quota-Fehler: Sicherer adaptierter Plan
+      const fallback = this.getAdaptedPlan({ ageGroup, weeksCount: count, customFocus });
+      fallback.aiWarning = apiErr.message;
+      return fallback;
+    }
   },
 
   /**

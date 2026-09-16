@@ -616,9 +616,12 @@ const training = {
     const statusBox = document.getElementById('generator-status-msg');
     const submitBtn = document.getElementById('generator-submit-btn');
     
-    const weeksCount = parseInt(document.getElementById('gen-weeks').value, 10) || 4;
+    const weeksCount = parseInt(document.getElementById('gen-weeks')?.value, 10) || 4;
+    const isSingleUnit = weeksCount === 1;
     const customFocus = (document.getElementById('gen-focus')?.value || '').trim();
     const ageGroup = document.getElementById('gen-age-group')?.value || 'F-Jugend (U9)';
+    const unitsLabel = isSingleUnit ? '1 Trainingseinheit' : `${weeksCount}-Wochen-Plan`;
+    const offlineBtnText = isSingleUnit ? 'Einheit offline anpassen' : `Plan offline anpassen (${weeksCount} Wo.)`;
 
     // 1. Wenn kein Gemini API-Key hinterlegt ist: Dem Trainer eine klare Wahl bieten!
     if (!aiService.hasApiKey()) {
@@ -637,7 +640,7 @@ const training = {
                 <i class="fa-solid fa-wand-magic-sparkles"></i> API-Key jetzt hinterlegen
               </button>
               <button type="button" class="btn btn-outline btn-sm" id="btn-create-offline-plan">
-                <i class="fa-solid fa-sliders"></i> DFB-Plan offline anpassen (${weeksCount} Wo.)
+                <i class="fa-solid fa-sliders"></i> ${offlineBtnText}
               </button>
             </div>
           </div>
@@ -664,7 +667,7 @@ const training = {
       statusBox.innerHTML = `
         <div class="loading-state">
           <i class="fa-solid fa-wand-magic-sparkles fa-spin"></i>
-          <span>Gemini KI erstellt maßgeschneiderten ${weeksCount}-Wochen-Plan für ${ageGroup}...</span>
+          <span>Gemini KI erstellt maßgeschneiderte ${unitsLabel} für ${ageGroup}...</span>
         </div>
       `;
     }
@@ -682,9 +685,11 @@ const training = {
       this.saveState();
 
       if (statusBox) {
+        const warningNotice = plan.aiWarning ? `<div style="font-size: 12px; margin-top: 4px; color: var(--accent);"><i class="fa-solid fa-info-circle"></i> ${plan.aiWarning}</div>` : '';
         statusBox.innerHTML = `
           <div class="success-msg" style="padding: 12px;">
-            <i class="fa-solid fa-circle-check"></i> Neuer individueller KI-Trainingsplan (${plan.units.length} Einheiten) erfolgreich generiert!
+            <i class="fa-solid fa-circle-check"></i> ${isSingleUnit ? 'Trainingseinheit' : 'Trainingsplan'} (${plan.units.length} ${plan.units.length === 1 ? 'Einheit' : 'Einheiten'}) erfolgreich geladen!
+            ${warningNotice}
           </div>
         `;
       }
@@ -709,7 +714,7 @@ const training = {
                 <i class="fa-solid fa-rotate-right"></i> Erneut versuchen
               </button>
               <button type="button" class="btn btn-secondary btn-sm" id="btn-fallback-offline">
-                <i class="fa-solid fa-book-open"></i> Plan offline anpassen (${weeksCount} Wo.)
+                <i class="fa-solid fa-book-open"></i> ${offlineBtnText}
               </button>
             </div>
           </div>
