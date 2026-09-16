@@ -633,18 +633,223 @@ const pitchRenderer = {
   },
 
   /**
-   * Kompakte Legende unterhalb der Taktiktafel
+   * Kompakte, realitätsnahe Vektor-Legende unterhalb der Taktiktafel
+   * Bildet exakt die gleichen Elemente ab, die auf dem Spielfeld zu sehen sind!
    */
-  getLegend(layout) {
+  getLegend(layout = {}) {
+    const items = [];
+
+    const hasMiniGoal = layout.goals && layout.goals.some(g => g.type === 'mini' || !g.type);
+    const hasYouthGoal = layout.goals && layout.goals.some(g => g.type === 'youth');
+    const hasKeeper = layout.players && layout.players.some(p => p.team === 'keeper');
+    const hasBlueTeam = layout.players && layout.players.some(p => p.team === 'blue' || !p.team);
+    const hasRedTeam = layout.players && layout.players.some(p => p.team === 'red');
+    const hasTrainer = layout.players && layout.players.some(p => p.team === 'trainer');
+    const hasCones = layout.cones && layout.cones.length > 0;
+    const hasRings = layout.rings && layout.rings.length > 0;
+    const hasHurdles = layout.hurdles && layout.hurdles.length > 0;
+    const hasPoles = layout.poles && layout.poles.length > 0;
+    const hasBalls = layout.balls && layout.balls.length > 0;
+    const hasPass = layout.arrows && layout.arrows.some(a => a.type === 'pass');
+    const hasDribble = layout.arrows && layout.arrows.some(a => a.type === 'dribble');
+    const hasShot = layout.arrows && layout.arrows.some(a => a.type === 'shot');
+    const hasRun = layout.arrows && layout.arrows.some(a => a.type === 'run');
+
+    // 1. Tore
+    if (hasYouthGoal) {
+      items.push(`
+        <span class="legend-item" title="Jugendtor (5m)">
+          <svg class="legend-icon-svg" width="20" height="13" viewBox="0 0 20 13">
+            <rect x="2" y="1" width="16" height="11" rx="1.5" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-dasharray="2,2" />
+            <line x1="18" y1="1" x2="18" y2="12" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
+            <line x1="2" y1="1" x2="18" y2="1" stroke="#ffffff" stroke-width="1.8" />
+            <line x1="2" y1="12" x2="18" y2="12" stroke="#ffffff" stroke-width="1.8" />
+          </svg>
+          Jugendtor
+        </span>
+      `);
+    }
+
+    if (hasMiniGoal) {
+      items.push(`
+        <span class="legend-item" title="Minitor (Funino)">
+          <svg class="legend-icon-svg" width="16" height="13" viewBox="0 0 16 13">
+            <rect x="2" y="1" width="9" height="11" rx="1" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.4)" stroke-width="1" stroke-dasharray="2,2" />
+            <line x1="11" y1="1" x2="11" y2="12" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" />
+            <circle cx="11" cy="1" r="1.5" fill="#ffffff" />
+            <circle cx="11" cy="12" r="1.5" fill="#ffffff" />
+          </svg>
+          Minitor
+        </span>
+      `);
+    }
+
+    // 2. Materialien & Hindernisse
+    if (hasCones || (!hasHurdles && !hasRings && !hasPoles)) {
+      items.push(`
+        <span class="legend-item" title="Pylone / Hütchen">
+          <svg class="legend-icon-svg" width="14" height="14" viewBox="0 0 16 16">
+            <polygon points="8,1 15,13 1,13" fill="#f59e0b" stroke="#ffffff" stroke-width="0.75" />
+            <ellipse cx="8" cy="13" rx="7" ry="2.2" fill="#f59e0b" />
+            <circle cx="8" cy="1.5" r="1.2" fill="#ffffff" />
+          </svg>
+          Hütchen
+        </span>
+      `);
+    }
+
+    if (hasRings) {
+      items.push(`
+        <span class="legend-item" title="Koordinationsreifen">
+          <svg class="legend-icon-svg" width="14" height="14" viewBox="0 0 16 16">
+            <circle cx="8" cy="8" r="6" fill="none" stroke="#38bdf8" stroke-width="2.5" />
+          </svg>
+          Reifen
+        </span>
+      `);
+    }
+
+    if (hasHurdles) {
+      items.push(`
+        <span class="legend-item" title="Minihürde">
+          <svg class="legend-icon-svg" width="18" height="12" viewBox="0 0 20 12">
+            <line x1="2" y1="6" x2="18" y2="6" stroke="#facc15" stroke-width="3" stroke-linecap="round" />
+            <circle cx="2" cy="6" r="2" fill="#ca8a04" />
+            <circle cx="18" cy="6" r="2" fill="#ca8a04" />
+          </svg>
+          Minihürde
+        </span>
+      `);
+    }
+
+    if (hasPoles) {
+      items.push(`
+        <span class="legend-item" title="Slalomstange">
+          <svg class="legend-icon-svg" width="14" height="14" viewBox="0 0 16 16">
+            <circle cx="8" cy="8" r="6" fill="rgba(239, 68, 68, 0.25)" />
+            <circle cx="8" cy="8" r="3.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.2" />
+          </svg>
+          Slalomstange
+        </span>
+      `);
+    }
+
+    // 3. Personen
+    if (hasKeeper) {
+      items.push(`
+        <span class="legend-item" title="Torhüter">
+          <svg class="legend-icon-svg" width="16" height="16" viewBox="0 0 18 18">
+            <circle cx="9" cy="9" r="7.5" fill="#eab308" stroke="#fef08a" stroke-width="1.5" />
+            <text x="9" y="11.5" fill="#000000" font-size="6.5" font-weight="900" text-anchor="middle" font-family="'Outfit', sans-serif">TW</text>
+          </svg>
+          Torwart
+        </span>
+      `);
+    }
+
+    if (hasBlueTeam) {
+      items.push(`
+        <span class="legend-item" title="Team Blau">
+          <svg class="legend-icon-svg" width="16" height="16" viewBox="0 0 18 18">
+            <circle cx="9" cy="9" r="7.5" fill="#0284c7" stroke="#38bdf8" stroke-width="1.5" />
+            <text x="9" y="11.5" fill="#ffffff" font-size="7" font-weight="900" text-anchor="middle" font-family="'Outfit', sans-serif">A</text>
+          </svg>
+          Team Blau
+        </span>
+      `);
+    }
+
+    if (hasRedTeam) {
+      items.push(`
+        <span class="legend-item" title="Team Rot">
+          <svg class="legend-icon-svg" width="16" height="16" viewBox="0 0 18 18">
+            <circle cx="9" cy="9" r="7.5" fill="#dc2626" stroke="#f87171" stroke-width="1.5" />
+            <text x="9" y="11.5" fill="#ffffff" font-size="7" font-weight="900" text-anchor="middle" font-family="'Outfit', sans-serif">B</text>
+          </svg>
+          Team Rot
+        </span>
+      `);
+    }
+
+    if (hasTrainer) {
+      items.push(`
+        <span class="legend-item" title="Trainer">
+          <svg class="legend-icon-svg" width="16" height="16" viewBox="0 0 18 18">
+            <circle cx="9" cy="9" r="7.5" fill="#10b981" stroke="#6ee7b7" stroke-width="1.5" />
+            <text x="9" y="11.5" fill="#ffffff" font-size="6.5" font-weight="900" text-anchor="middle" font-family="'Outfit', sans-serif">Tr</text>
+          </svg>
+          Trainer
+        </span>
+      `);
+    }
+
+    if (hasBalls) {
+      items.push(`
+        <span class="legend-item" title="Fußball">
+          <svg class="legend-icon-svg" width="14" height="14" viewBox="0 0 16 16">
+            <circle cx="8" cy="8" r="6" fill="#ffffff" stroke="#000000" stroke-width="1" />
+            <circle cx="8" cy="8" r="2" fill="#000000" />
+            <line x1="8" y1="2" x2="8" y2="6" stroke="#000000" stroke-width="0.8" />
+            <line x1="13" y1="11" x2="9.5" y2="9" stroke="#000000" stroke-width="0.8" />
+            <line x1="3" y1="11" x2="6.5" y2="9" stroke="#000000" stroke-width="0.8" />
+          </svg>
+          Ball
+        </span>
+      `);
+    }
+
+    // 4. Aktionen / Pfeile
+    if (hasPass) {
+      items.push(`
+        <span class="legend-item" title="Pass">
+          <svg class="legend-icon-svg" width="24" height="12" viewBox="0 0 24 12">
+            <line x1="1" y1="6" x2="18" y2="6" stroke="#00d2ff" stroke-width="2.5" stroke-dasharray="4,3" stroke-linecap="round" />
+            <polygon points="17,3 23,6 17,9" fill="#00d2ff" />
+          </svg>
+          Pass
+        </span>
+      `);
+    }
+
+    if (hasDribble) {
+      items.push(`
+        <span class="legend-item" title="Dribbling">
+          <svg class="legend-icon-svg" width="24" height="12" viewBox="0 0 24 12">
+            <path d="M 1 6 Q 6 1 11 6 T 19 6" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" />
+            <polygon points="17,3 23,6 17,9" fill="#f59e0b" />
+          </svg>
+          Dribbling
+        </span>
+      `);
+    }
+
+    if (hasShot) {
+      items.push(`
+        <span class="legend-item" title="Torschuss">
+          <svg class="legend-icon-svg" width="24" height="12" viewBox="0 0 24 12">
+            <line x1="1" y1="6" x2="18" y2="6" stroke="#ef4444" stroke-width="3" stroke-linecap="round" />
+            <polygon points="16,2 23,6 16,10" fill="#ef4444" />
+          </svg>
+          Torschuss
+        </span>
+      `);
+    }
+
+    if (hasRun) {
+      items.push(`
+        <span class="legend-item" title="Laufweg">
+          <svg class="legend-icon-svg" width="24" height="12" viewBox="0 0 24 12">
+            <line x1="1" y1="6" x2="18" y2="6" stroke="#f8fafc" stroke-width="2" stroke-linecap="round" />
+            <polygon points="17,3 23,6 17,9" fill="#f8fafc" />
+          </svg>
+          Laufweg
+        </span>
+      `);
+    }
+
     return `
       <div class="pitch-tactics-legend">
-        <span class="legend-item"><span class="legend-dot" style="background:#ef4444;"></span> Minitor</span>
-        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b;"></span> Hütchen</span>
-        <span class="legend-item"><span class="legend-dot" style="background:#0284c7;"></span> Team Blau</span>
-        <span class="legend-item"><span class="legend-dot" style="background:#dc2626;"></span> Team Rot</span>
-        <span class="legend-item"><span class="legend-line" style="border-top: 2px dashed #00d2ff;"></span> Pass</span>
-        <span class="legend-item"><span class="legend-line" style="border-top: 2px solid #f59e0b;"></span> Dribbling</span>
-        <span class="legend-item"><span class="legend-line" style="border-top: 2px solid #ef4444;"></span> Schuss</span>
+        ${items.join('')}
       </div>
     `;
   }
