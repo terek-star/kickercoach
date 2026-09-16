@@ -60,6 +60,21 @@ http://localhost:8080
 
 ---
 
+## ⚡ Deployment auf Vercel (mit zentraler KI für alle Trainer)
+
+KickerCoach kann mit einem Klick auf **Vercel** bereitgestellt werden. Über die integrierte Serverless Function (`api/generate-plan.js`) können Trainerkollegen mit dem einfachen **Trainer-Zugangscode** (`kicker2026`) echte KI-Trainingspläne erstellen – **ohne** eigenen Google-Account und ohne eigenen API-Key:
+
+### 1-Klick-Setup auf Vercel:
+1. Gehe auf [vercel.com](https://vercel.com) und melde dich mit deinem GitHub-Konto an.
+2. Klicke auf **„Add New...“ $\rightarrow$ „Project“** und wähle das Repository **`terek-star/kickercoach`** aus.
+3. Klappe vor dem Klick auf Deploy den Bereich **„Environment Variables“** auf und füge folgende zwei Variablen hinzu:
+   * `GEMINI_API_KEY` : Dein Google Gemini API-Key (von [aistudio.google.com](https://aistudio.google.com/))
+   * `TRAINER_ACCESS_CODE` : `kicker2026` *(oder dein individueller Vereinscode)*
+4. Klicke auf **„Deploy“**.
+5. Fertig! Deine App ist sofort live unter **`https://kickercoach.vercel.app`** (oder deiner Wunsch-Domain) mit SSL und automatischer CI/CD bei jedem Git-Push erreichbar!
+
+---
+
 ## 💬 Feedback für Trainer
 Hast du Ideen, Wünsche oder Übungsvorschläge für die Trainingspraxis?
 Nutze einfach den **„Feedback“**-Button direkt in der App, um Rückmeldungen per E-Mail oder WhatsApp mitzuteilen!

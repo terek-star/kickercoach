@@ -14,11 +14,68 @@ const aiService = {
   storageKeys: {
     apiKey: 'kickercoach_gemini_api_key',
     model: 'kickercoach_gemini_model',
-    apiVersion: 'kickercoach_gemini_api_version'
+    apiVersion: 'kickercoach_gemini_api_version',
+    trainerCode: 'kickercoach_trainer_code',
+    backendUrl: 'kickercoach_backend_url',
+    activeMode: 'kickercoach_ai_mode'
   },
 
   defaultModel: 'gemini-2.0-flash',
   cachedModels: [],
+
+  getTrainerCode() {
+    return localStorage.getItem(this.storageKeys.trainerCode) || '';
+  },
+
+  setTrainerCode(code) {
+    if (code) {
+      localStorage.setItem(this.storageKeys.trainerCode, code.trim());
+      this.setActiveMode('code');
+    } else {
+      localStorage.removeItem(this.storageKeys.trainerCode);
+      if (this.getActiveMode() === 'code') {
+        localStorage.removeItem(this.storageKeys.activeMode);
+      }
+    }
+  },
+
+  hasTrainerCode() {
+    const code = this.getTrainerCode();
+    return Boolean(code && code.length >= 3);
+  },
+
+  getBackendUrl() {
+    const custom = localStorage.getItem(this.storageKeys.backendUrl);
+    if (custom) return custom.trim();
+    if (window.location && window.location.hostname && window.location.hostname.includes('github.io')) {
+      return 'https://kickercoach.vercel.app/api/generate-plan';
+    }
+    return '/api/generate-plan';
+  },
+
+  setBackendUrl(url) {
+    if (url) {
+      localStorage.setItem(this.storageKeys.backendUrl, url.trim());
+    } else {
+      localStorage.removeItem(this.storageKeys.backendUrl);
+    }
+  },
+
+  getActiveMode() {
+    const mode = localStorage.getItem(this.storageKeys.activeMode);
+    if (mode) return mode;
+    if (this.hasTrainerCode()) return 'code';
+    if (this.hasApiKey()) return 'key';
+    return 'none';
+  },
+
+  setActiveMode(mode) {
+    localStorage.setItem(this.storageKeys.activeMode, mode);
+  },
+
+  hasActiveAccess() {
+    return this.hasTrainerCode() || this.hasApiKey();
+  },
 
   getApiKey() {
     return localStorage.getItem(this.storageKeys.apiKey) || '';
@@ -27,8 +84,12 @@ const aiService = {
   setApiKey(key, model = null, apiVersion = 'v1beta') {
     if (key) {
       localStorage.setItem(this.storageKeys.apiKey, key.trim());
+      this.setActiveMode('key');
     } else {
       localStorage.removeItem(this.storageKeys.apiKey);
+      if (this.getActiveMode() === 'key') {
+        localStorage.removeItem(this.storageKeys.activeMode);
+      }
     }
     if (model) {
       localStorage.setItem(this.storageKeys.model, model);
@@ -49,6 +110,66 @@ const aiService = {
   hasApiKey() {
     const key = this.getApiKey();
     return Boolean(key && key.length > 10);
+  },
+
+  /**
+   * Prüft den Trainer-Zugangscode gegen das Backend
+   */
+  async verifyTrainerCode(code) {
+    if (!code || code.trim().length < 3) {
+      return { success: false, message: 'Bitte gib einen gültigen Zugangscode ein.' };
+    }
+
+    const trimmed = code.trim();
+    const backendUrl = this.getBackendUrl();
+
+    try {
+      const res = await fetch(backendUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify-code',
+          trainerCode: trimmed
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        this.setTrainerCode(trimmed);
+        return {
+          success: true,
+          message: data.message || 'Zugangscode erfolgreich verifiziert! Vereins-KI ist aktiv.',
+          backendConfigured: data.backendConfigured
+        };
+      }
+
+      if (res.status === 401) {
+        return {
+          success: false,
+          message: 'Ungültiger Zugangscode. Bitte prüfe die Eingabe (Standard: kicker2026).'
+        };
+      }
+
+      const errData = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errData.error || `Server antwortete mit Status ${res.status}`
+      };
+    } catch (netErr) {
+      // Wenn der Server lokal (z.B. python http.server ohne Serverless-Runtime) nicht auf /api antwortet:
+      if (trimmed.toLowerCase() === 'kicker2026') {
+        this.setTrainerCode(trimmed);
+        return {
+          success: true,
+          message: 'Zugangscode kicker2026 lokal als aktiv hinterlegt! (Serverseitige Ausführung erfolgt auf Vercel)',
+          localMode: true
+        };
+      }
+      return {
+        success: false,
+        message: `Verbindungsfehler zum Backend (${netErr.message}).`
+      };
+    }
   },
 
   /**
@@ -311,9 +432,73 @@ const aiService = {
   },
 
   /**
-   * Universeller Gemini Aufruf mit automatischem Modell-Fallback
+   * Universeller Aufruf der KI:
+   * 1. Falls Trainer-Zugangscode aktiv -> sicherer Aufruf via Vercel-Backend Proxy
+   * 2. Falls eigener API-Key aktiv -> direkter Client-Side Aufruf an Google Gemini
    */
   async callGemini({ prompt, generationConfig = {}, preferredModel = null }) {
+    const activeMode = this.getActiveMode();
+
+    if (activeMode === 'code' || (this.hasTrainerCode() && !this.hasApiKey())) {
+      return this.callBackendProxy({ prompt, generationConfig, preferredModel });
+    }
+
+    if (this.hasApiKey()) {
+      return this.callDirectGemini({ prompt, generationConfig, preferredModel });
+    }
+
+    if (this.hasTrainerCode()) {
+      return this.callBackendProxy({ prompt, generationConfig, preferredModel });
+    }
+
+    throw new Error('Weder Trainer-Zugangscode noch Google Gemini API-Key hinterlegt.');
+  },
+
+  /**
+   * Ruft die Vercel Serverless Function als sicheren Proxy auf
+   */
+  async callBackendProxy({ prompt, generationConfig = {}, preferredModel = null }) {
+    const code = this.getTrainerCode();
+    if (!code) throw new Error('Kein Trainer-Zugangscode vorhanden.');
+
+    const backendUrl = this.getBackendUrl();
+
+    try {
+      const response = await fetch(backendUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Trainer-Code': code
+        },
+        body: JSON.stringify({
+          prompt,
+          generationConfig,
+          trainerCode: code,
+          model: preferredModel || this.getModel()
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const msg = errData.error || `Serverless Backend Fehler (HTTP ${response.status})`;
+        throw new Error(msg);
+      }
+
+      const data = await response.json();
+      if (data.text) {
+        return data.text;
+      }
+      throw new Error('Unerwartetes Antwortformat vom Backend-Proxy.');
+    } catch (err) {
+      console.warn('Backend-Aufruf fehlgeschlagen:', err.message);
+      throw err;
+    }
+  },
+
+  /**
+   * Direkter client-seitiger Aufruf von Google Gemini mit persönlichem API-Key
+   */
+  async callDirectGemini({ prompt, generationConfig = {}, preferredModel = null }) {
     const apiKey = this.getApiKey();
     if (!apiKey) throw new Error('Kein API-Key vorhanden');
 
@@ -380,7 +565,7 @@ const aiService = {
                (lastError.includes('response_mime_type') || lastError.includes('responseMimeType') || lastError.includes('generation_config'))) {
               const stripped = { ...generationConfig };
               delete stripped.responseMimeType;
-              return this.callGemini({ prompt, preferredModel: candidate, generationConfig: stripped });
+              return this.callDirectGemini({ prompt, preferredModel: candidate, generationConfig: stripped });
             }
 
             // Bei ungültigem API-Key sofort abbrechen
@@ -505,9 +690,9 @@ const aiService = {
       customFocus = ''
     } = params;
 
-    // 1. Prüfen, ob ein API-Key vorhanden ist
-    if (!this.hasApiKey()) {
-      const err = new Error('Kein Google Gemini API-Key hinterlegt.');
+    // 1. Prüfen, ob ein Zugang vorhanden ist (Trainer-Code oder eigener API-Key)
+    if (!this.hasActiveAccess()) {
+      const err = new Error('Weder Trainer-Zugangscode noch Google Gemini API-Key hinterlegt.');
       err.code = 'NO_API_KEY';
       throw err;
     }
@@ -665,8 +850,8 @@ Schema:
       localMatches = localMatches.filter(d => d.focus.toLowerCase().includes(focus.toLowerCase()) || d.phase === focus);
     }
 
-    // 2. Wenn Gemini Key vorhanden, erweiterte KI-Suche nach echten soccerdrills Übungen
-    if (this.hasApiKey() && query && query.length > 2) {
+    // 2. Wenn Gemini Key oder Trainer-Code vorhanden, erweiterte KI-Suche nach echten soccerdrills Übungen
+    if (this.hasActiveAccess() && query && query.length > 2) {
       try {
         const prompt = `
 Du bist ein Experte für Fußballtraining im Kinderbereich und kennst die Plattform soccerdrills.de sehr gut.
@@ -723,7 +908,7 @@ Antworte NUR mit validem JSON in diesem Format:
 
     const isUrl = sourceUrlOrText.startsWith('http://') || sourceUrlOrText.startsWith('https://');
 
-    if (!this.hasApiKey()) {
+    if (!this.hasActiveAccess()) {
       // Intelligenter Offline-Parser
       return {
         id: 'imported-' + Date.now(),

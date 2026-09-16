@@ -2596,6 +2596,45 @@ dialog.glass-dialog::backdrop {
   color: var(--text-primary);
 }
 
+/* Gemini Mode Switch Tabs */
+.gemini-mode-tabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gemini-mode-tab-btn {
+  flex: 1;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.gemini-mode-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gemini-mode-tab-btn.active {
+  background: var(--primary);
+  color: #000000;
+  box-shadow: 0 2px 8px rgba(0, 229, 155, 0.3);
+}
+
 /* Feedback Dialog & Rating Stars */
 .feedback-rating-row {
   display: flex;

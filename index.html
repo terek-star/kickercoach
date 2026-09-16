@@ -812,54 +812,101 @@
 
   </div>
 
-  <!-- GEMINI API SETTINGS DIALOG -->
+  <!-- GEMINI API & TRAINER CODE SETTINGS DIALOG -->
   <dialog id="gemini-settings-dialog" class="glass-dialog">
     <div class="dialog-header">
       <h3 style="display: flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--primary);"></i> Google Gemini API Einstellungen
+        <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--primary);"></i> KI-Konfiguration & Zugang
       </h3>
       <button class="dialog-close-btn" onclick="document.getElementById('gemini-settings-dialog').close()">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
 
-    <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 18px;">
-      Hinterlege deinen persönlichen Google Gemini API-Key, um Trainingspläne live zu generieren, externe Links zu analysieren und automatisierte soccerdrills.de Suchen auszuführen. Der Key wird sicher und ausschließlich lokal in deinem Browser gespeichert.
+    <!-- Mode Selector Tabs -->
+    <div class="gemini-mode-tabs">
+      <button type="button" class="gemini-mode-tab-btn active" id="tab-btn-code">
+        <i class="fa-solid fa-key"></i> Vereins-Code (Empfohlen)
+      </button>
+      <button type="button" class="gemini-mode-tab-btn" id="tab-btn-key">
+        <i class="fa-solid fa-code"></i> Eigener API-Key
+      </button>
     </div>
 
-    <div class="form-group">
-      <label for="gemini-api-key-input">Gemini API Key</label>
-      <div style="position: relative;">
-        <input type="password" id="gemini-api-key-input" placeholder="AIzaSy..." style="padding-right: 40px; font-family: monospace;">
-        <button type="button" id="toggle-key-visibility-btn" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer;">
-          <i class="fa-solid fa-eye"></i>
+    <!-- TAB 1: TRAINER ACCESS CODE -->
+    <div id="gemini-tab-content-code">
+      <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
+        Gib den Trainer-Zugangscode ein, um KI-Trainingspläne sofort über das geschützte Vercel-Backend zu erstellen. Du benötigst <strong>keinen eigenen Google-Account</strong> und keinen persönlichen API-Key.
+      </div>
+
+      <div class="form-group">
+        <label for="trainer-code-input">Trainer-Zugangscode</label>
+        <div style="position: relative;">
+          <input type="text" id="trainer-code-input" placeholder="z. B. kicker2026" style="padding-right: 40px; font-family: monospace; font-weight: 700; letter-spacing: 0.5px;">
+          <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--primary); font-size: 14px;">
+            <i class="fa-solid fa-shield-halved"></i>
+          </span>
+        </div>
+        <small style="color: var(--text-muted); font-size: 11px; margin-top: 4px; display: block;">
+          Standard-Zugangscode für Trainerkollegen: <strong style="color: var(--primary);">kicker2026</strong>
+        </small>
+      </div>
+
+      <div id="trainer-code-result" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px;"></div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+        <button type="button" class="btn btn-outline btn-sm" id="clear-trainer-code-btn" style="display: none;">
+          <i class="fa-solid fa-trash"></i> Code entfernen
         </button>
+        <div style="display: flex; gap: 8px; margin-left: auto;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('gemini-settings-dialog').close()">Schließen</button>
+          <button type="button" class="btn btn-primary btn-sm" id="save-trainer-code-btn">
+            <i class="fa-solid fa-circle-check"></i> Code aktivieren
+          </button>
+        </div>
       </div>
     </div>
 
-    <div class="form-group">
-      <label for="gemini-model-select">Gemini Modell (wird bei 'Verbindung testen' automatisch optimiert)</label>
-      <select id="gemini-model-select">
-        <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash (Empfohlen: Neuestes schnelles Modell)</option>
-        <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Latest)</option>
-        <option value="gemini-1.5-flash-002">Gemini 1.5 Flash 002</option>
-        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-        <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro (Latest)</option>
-        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-      </select>
-    </div>
+    <!-- TAB 2: PERSONAL GEMINI API KEY -->
+    <div id="gemini-tab-content-key" style="display: none;">
+      <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
+        Alternativ kannst du deinen persönlichen Google Gemini API-Key hinterlegen. Der Key wird ausschließlich lokal in deinem Browser gespeichert.
+      </div>
 
-    <div id="gemini-test-result" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px;"></div>
+      <div class="form-group">
+        <label for="gemini-api-key-input">Persönlicher Gemini API-Key</label>
+        <div style="position: relative;">
+          <input type="password" id="gemini-api-key-input" placeholder="AIzaSy..." style="padding-right: 40px; font-family: monospace;">
+          <button type="button" id="toggle-key-visibility-btn" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer;">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
+      </div>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-      <button type="button" class="btn btn-outline btn-sm" id="test-gemini-connection-btn">
-        <i class="fa-solid fa-plug"></i> Verbindung testen
-      </button>
-      <div style="display: flex; gap: 8px;">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('gemini-settings-dialog').close()">Abbrechen</button>
-        <button type="button" class="btn btn-primary btn-sm" id="save-gemini-settings-btn">
-          <i class="fa-solid fa-floppy-disk"></i> Speichern
+      <div class="form-group">
+        <label for="gemini-model-select">Gemini Modell</label>
+        <select id="gemini-model-select">
+          <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash (Empfohlen: Neuestes schnelles Modell)</option>
+          <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Latest)</option>
+          <option value="gemini-1.5-flash-002">Gemini 1.5 Flash 002</option>
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+          <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro (Latest)</option>
+          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        </select>
+      </div>
+
+      <div id="gemini-test-result" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px;"></div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+        <button type="button" class="btn btn-outline btn-sm" id="test-gemini-connection-btn">
+          <i class="fa-solid fa-plug"></i> Verbindung testen
         </button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('gemini-settings-dialog').close()">Schließen</button>
+          <button type="button" class="btn btn-primary btn-sm" id="save-gemini-settings-btn">
+            <i class="fa-solid fa-floppy-disk"></i> Speichern
+          </button>
+        </div>
       </div>
     </div>
   </dialog>

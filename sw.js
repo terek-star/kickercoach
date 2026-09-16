@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kickercoach-v9';
+const CACHE_NAME = 'kickercoach-v10';
 const ASSETS = [
   './',
   './index.html',
@@ -20,7 +20,7 @@ const ASSETS = [
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Speichere App-Dateien im Cache...');
+      console.log('[Service Worker] Caching App Shell & Assets');
       return cache.addAll(ASSETS);
     }).then(() => self.skipWaiting())
   );
@@ -47,8 +47,8 @@ self.addEventListener('fetch', (e) => {
   // Nur Standard http/https Anfragen verarbeiten
   if (!e.request.url.startsWith('http')) return;
 
-  // Externe APIs (wie Google Gemini API) direkt über Netzwerk abwickeln
-  if (e.request.url.includes('googleapis.com')) {
+  // Externe APIs und Backend-Endpunkte (/api/*) direkt über Netzwerk abwickeln (niemals cachen)
+  if (e.request.url.includes('googleapis.com') || e.request.url.includes('/api/')) {
     return;
   }
 

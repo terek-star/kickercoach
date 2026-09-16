@@ -177,30 +177,139 @@ const app = {
   },
 
   // Gemini API Settings Modal Controller
+  // Gemini API Settings Modal Controller
   setupGeminiModal() {
     const dialog = document.getElementById('gemini-settings-dialog');
     if (!dialog) return;
 
+    const tabBtnCode = document.getElementById('tab-btn-code');
+    const tabBtnKey = document.getElementById('tab-btn-key');
+    const contentCode = document.getElementById('gemini-tab-content-code');
+    const contentKey = document.getElementById('gemini-tab-content-key');
+
+    const switchTab = (tab) => {
+      if (tab === 'code') {
+        tabBtnCode?.classList.add('active');
+        tabBtnKey?.classList.remove('active');
+        if (contentCode) contentCode.style.display = 'block';
+        if (contentKey) contentKey.style.display = 'none';
+      } else {
+        tabBtnKey?.classList.add('active');
+        tabBtnCode?.classList.remove('active');
+        if (contentKey) contentKey.style.display = 'block';
+        if (contentCode) contentCode.style.display = 'none';
+      }
+    };
+
+    tabBtnCode?.addEventListener('click', () => switchTab('code'));
+    tabBtnKey?.addEventListener('click', () => switchTab('key'));
+
     const openBtns = [
       document.getElementById('gemini-settings-btn'),
-      document.getElementById('mobile-gemini-btn')
+      document.getElementById('mobile-gemini-btn'),
+      document.getElementById('api-status-badge')
     ].filter(Boolean);
 
     openBtns.forEach(btn => {
       btn.addEventListener('click', () => {
+        const codeInput = document.getElementById('trainer-code-input');
+        const codeResult = document.getElementById('trainer-code-result');
+        const clearCodeBtn = document.getElementById('clear-trainer-code-btn');
+
         const keyInput = document.getElementById('gemini-api-key-input');
         const modelSelect = document.getElementById('gemini-model-select');
         const testResult = document.getElementById('gemini-test-result');
-        
+
+        const activeMode = aiService.getActiveMode();
+        const currentCode = aiService.getTrainerCode();
+
+        if (codeInput) {
+          codeInput.value = currentCode || (activeMode !== 'key' ? 'kicker2026' : '');
+        }
+        if (codeResult) codeResult.style.display = 'none';
+        if (clearCodeBtn) {
+          clearCodeBtn.style.display = aiService.hasTrainerCode() ? 'inline-flex' : 'none';
+        }
+
         if (keyInput) keyInput.value = aiService.getApiKey();
         if (modelSelect) modelSelect.value = aiService.getModel();
         if (testResult) testResult.style.display = 'none';
+
+        if (activeMode === 'key') {
+          switchTab('key');
+        } else {
+          switchTab('code');
+        }
 
         dialog.showModal();
       });
     });
 
-    // Toggle key visibility
+    // --- TAB 1: Trainer Access Code Actions ---
+    const saveCodeBtn = document.getElementById('save-trainer-code-btn');
+    const clearCodeBtn = document.getElementById('clear-trainer-code-btn');
+    const codeInput = document.getElementById('trainer-code-input');
+    const codeResult = document.getElementById('trainer-code-result');
+
+    saveCodeBtn?.addEventListener('click', async () => {
+      const code = (codeInput?.value || '').trim();
+      if (!code) {
+        if (codeResult) {
+          codeResult.style.display = 'block';
+          codeResult.className = 'error-msg';
+          codeResult.textContent = 'Bitte gib einen Trainer-Zugangscode ein (z. B. kicker2026).';
+        }
+        return;
+      }
+
+      saveCodeBtn.disabled = true;
+      saveCodeBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Prüfe Code...';
+      if (codeResult) {
+        codeResult.style.display = 'block';
+        codeResult.className = 'loading-state';
+        codeResult.textContent = 'Verifiziere Zugangscode beim Backend...';
+      }
+
+      const res = await aiService.verifyTrainerCode(code);
+      saveCodeBtn.disabled = false;
+      saveCodeBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Code aktivieren';
+
+      if (res.success) {
+        aiService.setTrainerCode(code);
+        if (codeResult) {
+          codeResult.className = 'success-msg';
+          codeResult.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${res.message}`;
+        }
+        if (clearCodeBtn) clearCodeBtn.style.display = 'inline-flex';
+        if (typeof training !== 'undefined') {
+          training.updateApiKeyIndicator();
+        }
+        setTimeout(() => {
+          dialog.close();
+        }, 800);
+      } else {
+        if (codeResult) {
+          codeResult.className = 'error-msg';
+          codeResult.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${res.message}`;
+        }
+      }
+    });
+
+    clearCodeBtn?.addEventListener('click', () => {
+      aiService.setTrainerCode('');
+      if (codeInput) codeInput.value = '';
+      if (codeResult) {
+        codeResult.style.display = 'block';
+        codeResult.className = 'success-msg';
+        codeResult.textContent = 'Trainer-Zugangscode entfernt.';
+      }
+      clearCodeBtn.style.display = 'none';
+      if (typeof training !== 'undefined') {
+        training.updateApiKeyIndicator();
+      }
+    });
+
+    // --- TAB 2: Personal Gemini Key Actions ---
     const toggleVisBtn = document.getElementById('toggle-key-visibility-btn');
     const keyInput = document.getElementById('gemini-api-key-input');
     if (toggleVisBtn && keyInput) {
@@ -215,7 +324,6 @@ const app = {
       });
     }
 
-    // Test connection button
     const testBtn = document.getElementById('test-gemini-connection-btn');
     const testResult = document.getElementById('gemini-test-result');
     if (testBtn && testResult) {
@@ -242,7 +350,7 @@ const app = {
           testResult.className = 'success-msg';
           testResult.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${result.message}`;
           
-          // Dynamisch alle tatsächlich verfügbaren Modelle in das Select-Dropdown einfügen
+          const modelSelect = document.getElementById('gemini-model-select');
           if (result.models && result.models.length > 0 && modelSelect) {
             modelSelect.innerHTML = '';
             result.models.forEach(m => {
@@ -262,10 +370,9 @@ const app = {
       });
     }
 
-    // Save settings
-    const saveBtn = document.getElementById('save-gemini-settings-btn');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', () => {
+    const saveKeyBtn = document.getElementById('save-gemini-settings-btn');
+    if (saveKeyBtn) {
+      saveKeyBtn.addEventListener('click', () => {
         const key = keyInput ? keyInput.value.trim() : '';
         const modelSelect = document.getElementById('gemini-model-select');
         const model = modelSelect ? modelSelect.value : aiService.getModel();
@@ -275,7 +382,6 @@ const app = {
           training.updateApiKeyIndicator();
         }
         dialog.close();
-        alert(key ? `Google Gemini API-Key erfolgreich gespeichert! (Modell: ${model})` : 'API-Key entfernt.');
       });
     }
   },

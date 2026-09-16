@@ -138,12 +138,18 @@ const training = {
   updateApiKeyIndicator() {
     const indicator = document.getElementById('api-status-badge');
     if (!indicator) return;
-    if (aiService.hasApiKey()) {
+    if (aiService.hasTrainerCode()) {
       indicator.className = 'badge badge-green';
-      indicator.innerHTML = '<i class="fa-solid fa-bolt"></i> Gemini KI Aktiv';
+      indicator.innerHTML = '<i class="fa-solid fa-bolt"></i> Vereins-KI Aktiv';
+      indicator.title = 'Trainer-Zugangscode aktiv. Klicken für Einstellungen.';
+    } else if (aiService.hasApiKey()) {
+      indicator.className = 'badge badge-green';
+      indicator.innerHTML = '<i class="fa-solid fa-key"></i> Eigener Key Aktiv';
+      indicator.title = 'Persönlicher Gemini API-Key aktiv. Klicken für Einstellungen.';
     } else {
       indicator.className = 'badge badge-gold';
-      indicator.innerHTML = '<i class="fa-solid fa-key"></i> Key einrichten';
+      indicator.innerHTML = '<i class="fa-solid fa-lock-open"></i> KI freischalten';
+      indicator.title = 'Klicken, um Trainer-Zugangscode oder Key einzurichten.';
     }
   },
 
@@ -678,21 +684,21 @@ const training = {
     const unitsLabel = isSingleUnit ? '1 Trainingseinheit' : `${weeksCount}-Wochen-Plan`;
     const offlineBtnText = isSingleUnit ? 'Einheit offline anpassen' : `Plan offline anpassen (${weeksCount} Wo.)`;
 
-    // 1. Wenn kein Gemini API-Key hinterlegt ist: Dem Trainer eine klare Wahl bieten!
-    if (!aiService.hasApiKey()) {
+    // 1. Wenn weder Zugangscode noch API-Key hinterlegt ist: Dem Trainer eine klare Wahl bieten!
+    if (!aiService.hasActiveAccess()) {
       if (statusBox) {
         statusBox.style.display = 'block';
         statusBox.innerHTML = `
-          <div style="background: rgba(234, 179, 8, 0.12); border: 1px solid var(--accent); border-radius: var(--radius-sm); padding: 16px; margin-top: 10px;">
-            <div style="font-weight: 700; font-size: 15px; color: var(--accent); margin-bottom: 6px;">
-              <i class="fa-solid fa-key"></i> Kein Google Gemini API-Key hinterlegt
+          <div style="background: rgba(0, 229, 155, 0.08); border: 1px solid var(--primary); border-radius: var(--radius-sm); padding: 16px; margin-top: 10px;">
+            <div style="font-weight: 700; font-size: 15px; color: var(--primary); margin-bottom: 6px;">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> KI-Zugang aktivieren
             </div>
             <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
-              Auf diesem Gerät ist noch kein Google Gemini API-Key gespeichert. Für echte, individuelle KI-Trainingspläne kannst du deinen kostenlosen Key mit einem Klick hinterlegen – oder den DFB-Plan sofort offline anpassen.
+              Um echte, individuelle Trainingspläne per KI zu erstellen, gib einfach den <strong>Trainer-Zugangscode</strong> ein (z. B. <code>kicker2026</code> – kein Google-Account nötig) – oder passe den DFB-Plan sofort offline an.
             </p>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button type="button" class="btn btn-primary btn-sm" id="btn-open-gemini-key">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> API-Key jetzt hinterlegen
+              <button type="button" class="btn btn-primary btn-sm" id="btn-open-trainer-code">
+                <i class="fa-solid fa-key"></i> Zugangscode eingeben
               </button>
               <button type="button" class="btn btn-outline btn-sm" id="btn-create-offline-plan">
                 <i class="fa-solid fa-sliders"></i> ${offlineBtnText}
@@ -701,8 +707,12 @@ const training = {
           </div>
         `;
 
-        document.getElementById('btn-open-gemini-key')?.addEventListener('click', () => {
-          document.getElementById('gemini-settings-dialog')?.showModal();
+        document.getElementById('btn-open-trainer-code')?.addEventListener('click', () => {
+          const dialog = document.getElementById('gemini-settings-dialog');
+          if (dialog) {
+            document.getElementById('tab-btn-code')?.click();
+            dialog.showModal();
+          }
         });
 
         document.getElementById('btn-create-offline-plan')?.addEventListener('click', () => {
