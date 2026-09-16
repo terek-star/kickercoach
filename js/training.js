@@ -366,7 +366,12 @@ const training = {
             </div>
 
             <div id="diagram-svg-${unit.id}-${idx}" class="diagram-content-svg">
-              ${typeof pitchRenderer !== 'undefined' ? pitchRenderer.renderPitch(phase) : ''}
+              ${typeof pitchRenderer !== 'undefined' ? pitchRenderer.renderPitch(phase, {
+                unitNumber: unit.unitNumber || 1,
+                phaseIndex: idx,
+                unitFocus: unit.focusTheme || '',
+                unitId: unit.id || ''
+              }) : ''}
             </div>
 
             <div id="diagram-ascii-${unit.id}-${idx}" class="diagram-content-ascii" style="display: none;">
@@ -904,7 +909,12 @@ const training = {
               </div>
             </div>
             <div id="diagram-svg-pitch" class="diagram-content-svg">
-              ${typeof pitchRenderer !== 'undefined' ? pitchRenderer.renderPitch(currentPhase) : ''}
+              ${typeof pitchRenderer !== 'undefined' ? pitchRenderer.renderPitch(currentPhase, {
+                unitNumber: activeUnit.unitNumber || 1,
+                phaseIndex: this.activePhaseIndex,
+                unitFocus: activeUnit.focusTheme || '',
+                unitId: activeUnit.id || ''
+              }) : ''}
             </div>
             <div id="diagram-ascii-pitch" class="diagram-content-ascii" style="display: none;">
               <pre class="ascii-field-pitch">${(currentPhase.fieldDiagram || '').trim()}</pre>

@@ -224,7 +224,7 @@ const app = {
         const currentCode = aiService.getTrainerCode();
 
         if (codeInput) {
-          codeInput.value = currentCode || (activeMode !== 'key' ? 'kicker2026' : '');
+          codeInput.value = currentCode || '';
         }
         if (codeResult) codeResult.style.display = 'none';
         if (clearCodeBtn) {

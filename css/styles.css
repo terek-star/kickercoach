@@ -2195,7 +2195,8 @@ th.table-stats-col {
 .phase-detail-item p {
   font-size: 13px;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.6;
+  white-space: pre-line;
 }
 
 /* ASCII Field Diagram Visualizer */
@@ -2528,7 +2529,8 @@ th.table-stats-col {
 .pitch-inst-box p {
   font-size: 14px;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.6;
+  white-space: pre-line;
 }
 
 .pitch-coaching-box {

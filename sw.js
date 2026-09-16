@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kickercoach-v10';
+const CACHE_NAME = 'kickercoach-v11';
 const ASSETS = [
   './',
   './index.html',
