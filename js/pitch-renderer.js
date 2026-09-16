@@ -125,184 +125,271 @@ const pitchRenderer = {
     if (drill.tacticsLayout) return drill.tacticsLayout;
 
     const t = (drill.title || '').toLowerCase();
-    const d = (drill.description || drill.organization || '').toLowerCase();
-    const f = (drill.focus || '').toLowerCase();
-    const p = (drill.phase || '').toLowerCase();
+    const d = (drill.drillRules || drill.organization || drill.description || '').toLowerCase();
+    const f = (drill.focus || drill.focusTheme || '').toLowerCase();
+    const p = (drill.name || drill.phase || '').toLowerCase();
 
-    // 1. Funino / Minifußball (3vs3 auf 4 Minitore)
-    if (t.includes('funino') || d.includes('4 minitore') || t.includes('festival') || t.includes('kaiserturnier')) {
-      return {
-        pitchType: 'funino',
-        goals: [
-          { type: 'mini', x: 22, y: 55, dir: 'right', label: 'Tor 1' },
-          { type: 'mini', x: 22, y: 285, dir: 'right', label: 'Tor 2' },
-          { type: 'mini', x: 558, y: 55, dir: 'left', label: 'Tor 3' },
-          { type: 'mini', x: 558, y: 285, dir: 'left', label: 'Tor 4' }
-        ],
-        players: [
-          // Team Blau (3 Spieler)
-          { x: 190, y: 110, team: 'blue', label: 'A1' },
-          { x: 170, y: 200, team: 'blue', label: 'A2' },
-          { x: 190, y: 290, team: 'blue', label: 'A3' },
-          // Team Rot (3 Spieler)
-          { x: 410, y: 110, team: 'red', label: 'B1' },
-          { x: 430, y: 200, team: 'red', label: 'B2' },
-          { x: 410, y: 290, team: 'red', label: 'B3' }
-        ],
-        balls: [
-          { x: 205, y: 195 }
-        ],
-        arrows: [
-          { type: 'pass', from: [190, 110], to: [175, 190] },
-          { type: 'dribble', points: [[175, 200], [250, 180], [330, 230]] },
-          { type: 'shot', from: [330, 230], to: [550, 285] }
-        ],
-        cones: []
-      };
+    // 1. Spielformen & Funino (Phase 4 / Abschlussspiel)
+    if (p.includes('spiel') || p.includes('funino') || p.includes('abschluss') || t.includes('funino') || t.includes('festival') || d.includes('4 minitore') || d.includes('minitore')) {
+      return this.getFuninoLayout();
     }
 
-    // 2. Torschuss-Übung (mit Großtor / Torhüter)
-    if (f.includes('torschuss') || t.includes('torschuss') || t.includes('feuerwerk')) {
-      return {
-        pitchType: 'half',
-        goals: [
-          { type: 'youth', x: 550, y: 130, dir: 'left', label: 'Jugendtor' }
-        ],
-        players: [
-          { x: 535, y: 190, team: 'keeper', label: 'TW' },
-          { x: 100, y: 190, team: 'blue', label: '1' },
-          { x: 80, y: 190, team: 'blue', label: '2' },
-          { x: 60, y: 190, team: 'blue', label: '3' },
-          { x: 260, y: 100, team: 'trainer', label: 'Tr' }
-        ],
-        balls: [
-          { x: 245, y: 115 },
-          { x: 115, y: 190 }
-        ],
-        cones: [
-          { x: 220, y: 190, color: 'yellow' },
-          { x: 380, y: 140, color: 'red' },
-          { x: 380, y: 240, color: 'red' }
-        ],
-        arrows: [
-          { type: 'run', from: [115, 190], to: [320, 190] },
-          { type: 'pass', from: [250, 120], to: [325, 180] },
-          { type: 'shot', from: [335, 185], to: [540, 160] }
-        ]
-      };
+    // 2. Koordination & Motorik (Phase 2)
+    if (p.includes('koord') || p.includes('motorik') || t.includes('koord') || t.includes('parcours') || t.includes('stangen') || t.includes('reifen') || t.includes('hürden') || d.includes('reifen') || d.includes('stangen') || d.includes('hürden') || d.includes('leiter')) {
+      return this.getCoordinationLayout();
     }
 
-    // 3. 1-gegen-1 Duell (frontal oder auf Kontertore)
-    if (f.includes('1vs1') || t.includes('1-gegen-1') || t.includes('duell') || t.includes('zweikampf')) {
-      return {
-        pitchType: 'standard',
-        goals: [
-          { type: 'mini', x: 550, y: 80, dir: 'left', label: 'Tor L' },
-          { type: 'mini', x: 550, y: 260, dir: 'left', label: 'Tor R' }
-        ],
-        players: [
-          { x: 120, y: 190, team: 'blue', label: 'A' },
-          { x: 380, y: 190, team: 'red', label: 'V' }
-        ],
-        balls: [
-          { x: 135, y: 190 }
-        ],
-        cones: [
-          { x: 240, y: 140, color: 'blue' },
-          { x: 240, y: 240, color: 'blue' }
-        ],
-        arrows: [
-          { type: 'dribble', points: [[135, 190], [220, 190], [270, 150], [350, 110]] },
-          { type: 'run', from: [380, 190], to: [320, 160] },
-          { type: 'shot', from: [350, 110], to: [540, 85] }
-        ]
-      };
+    // 3. Torschuss / Schusstechnik (Hauptteil oder Schwerpunkt)
+    if (f.includes('schuss') || f.includes('torschuss') || t.includes('schuss') || t.includes('torschuss') || t.includes('feuerwerk') || d.includes('schuss') || d.includes('torhüter') || d.includes('jugendtor') || d.includes('torschuss') || d.includes('spannstoß')) {
+      return this.getShootingLayout();
     }
 
-    // 4. Passspiel & Dreiecksspiel
-    if (f.includes('pass') || t.includes('pass') || t.includes('dreieck')) {
-      return {
-        pitchType: 'standard',
-        goals: [
-          { type: 'mini', x: 550, y: 160, dir: 'left', label: 'Tor' }
-        ],
-        players: [
-          { x: 140, y: 270, team: 'blue', label: 'A' },
-          { x: 280, y: 100, team: 'blue', label: 'B' },
-          { x: 420, y: 270, team: 'blue', label: 'C' }
-        ],
-        balls: [
-          { x: 155, y: 260 }
-        ],
-        cones: [
-          { x: 140, y: 290, color: 'yellow' },
-          { x: 280, y: 80, color: 'yellow' },
-          { x: 420, y: 290, color: 'yellow' }
-        ],
-        arrows: [
-          { type: 'pass', from: [155, 260], to: [270, 115] },
-          { type: 'pass', from: [285, 115], to: [410, 260] },
-          { type: 'run', from: [140, 270], to: [270, 100] },
-          { type: 'shot', from: [425, 260], to: [540, 190] }
-        ]
-      };
+    // 4. 1-gegen-1 Duell & Zweikampf
+    if (f.includes('1vs1') || f.includes('1-gegen-1') || f.includes('zweikampf') || t.includes('1-gegen-1') || t.includes('1vs1') || t.includes('duell') || t.includes('zweikampf') || d.includes('1-gegen-1') || d.includes('zweikampf')) {
+      return this.getOneVsOneLayout();
     }
 
-    // 5. Koordination & Parcours (Reifen, Hürden, Stangen)
-    if (p.includes('coord') || t.includes('parcours') || t.includes('koordination') || t.includes('dschungel') || t.includes('stangen')) {
-      return {
-        pitchType: 'standard',
-        goals: [],
-        players: [
-          { x: 60, y: 120, team: 'blue', label: 'K1' },
-          { x: 40, y: 120, team: 'blue', label: 'K2' },
-          { x: 60, y: 260, team: 'blue', label: 'K3' },
-          { x: 40, y: 260, team: 'blue', label: 'K4' }
-        ],
-        balls: [
-          { x: 75, y: 260 }
-        ],
-        cones: [
-          { x: 480, y: 120, color: 'red' },
-          { x: 480, y: 260, color: 'red' }
-        ],
-        rings: [
-          { x: 150, y: 120 },
-          { x: 190, y: 120 },
-          { x: 230, y: 120 },
-          { x: 270, y: 120 }
-        ],
-        hurdles: [
-          { x: 330, y: 120 },
-          { x: 370, y: 120 },
-          { x: 410, y: 120 }
-        ],
-        poles: [
-          { x: 160, y: 260 },
-          { x: 220, y: 240 },
-          { x: 280, y: 270 },
-          { x: 340, y: 245 },
-          { x: 400, y: 265 }
-        ],
-        arrows: [
-          { type: 'run', from: [75, 120], to: [470, 120] },
-          { type: 'dribble', points: [[75, 260], [160, 275], [220, 230], [280, 280], [340, 235], [400, 275], [470, 260]] }
-        ]
-      };
+    // 5. Passspiel & Kombination
+    if (f.includes('pass') || t.includes('pass') || t.includes('dreieck') || d.includes('pass') || d.includes('zuspiel') || d.includes('wandspiel')) {
+      return this.getPassingLayout();
     }
 
-    // 6. Aufwärmen & Ballgewöhnung (Hütchenwald / Fangspiel)
+    // 6. Dribbling / Hütchentore / Ballführung
+    if (f.includes('dribbel') || f.includes('ballführung') || t.includes('dribbel') || t.includes('hütchentor') || d.includes('dribbel') || d.includes('hütchentor') || d.includes('ballführung')) {
+      return this.getDribblingLayout();
+    }
+
+    // 7. Hauptteil-Fallback (falls Schwerpunkt frei formuliert ist)
+    if (p.includes('haupt')) {
+      return this.getShootingLayout();
+    }
+
+    // 8. Aufwärmen & Fangspiele (Phase 1)
+    return this.getWarmupLayout();
+  },
+
+  getFuninoLayout() {
+    return {
+      pitchType: 'funino',
+      goals: [
+        { type: 'mini', x: 22, y: 55, dir: 'right', label: 'Tor 1' },
+        { type: 'mini', x: 22, y: 285, dir: 'right', label: 'Tor 2' },
+        { type: 'mini', x: 558, y: 55, dir: 'left', label: 'Tor 3' },
+        { type: 'mini', x: 558, y: 285, dir: 'left', label: 'Tor 4' }
+      ],
+      players: [
+        { x: 190, y: 110, team: 'blue', label: 'A1' },
+        { x: 170, y: 200, team: 'blue', label: 'A2' },
+        { x: 190, y: 290, team: 'blue', label: 'A3' },
+        { x: 410, y: 110, team: 'red', label: 'B1' },
+        { x: 430, y: 200, team: 'red', label: 'B2' },
+        { x: 410, y: 290, team: 'red', label: 'B3' }
+      ],
+      balls: [
+        { x: 205, y: 195 }
+      ],
+      arrows: [
+        { type: 'pass', from: [190, 110], to: [175, 190] },
+        { type: 'dribble', points: [[175, 200], [250, 180], [330, 230]] },
+        { type: 'shot', from: [330, 230], to: [550, 285] }
+      ],
+      cones: []
+    };
+  },
+
+  getShootingLayout() {
+    return {
+      pitchType: 'half',
+      goals: [
+        { type: 'youth', x: 550, y: 130, dir: 'left', label: 'Jugendtor' },
+        { type: 'mini', x: 20, y: 65, dir: 'right', label: 'Konter' },
+        { type: 'mini', x: 20, y: 275, dir: 'right', label: 'Konter' }
+      ],
+      players: [
+        { x: 535, y: 190, team: 'keeper', label: 'TW' },
+        { x: 110, y: 130, team: 'blue', label: 'A1' },
+        { x: 70, y: 130, team: 'blue', label: 'A2' },
+        { x: 110, y: 250, team: 'blue', label: 'B1' },
+        { x: 70, y: 250, team: 'blue', label: 'B2' },
+        { x: 270, y: 90, team: 'trainer', label: 'Tr' }
+      ],
+      balls: [
+        { x: 125, y: 130 },
+        { x: 85, y: 130 },
+        { x: 125, y: 250 },
+        { x: 255, y: 100 }
+      ],
+      cones: [
+        { x: 370, y: 120, color: 'red' },
+        { x: 370, y: 260, color: 'red' },
+        { x: 200, y: 130, color: 'yellow' },
+        { x: 200, y: 250, color: 'yellow' }
+      ],
+      arrows: [
+        { type: 'pass', from: [260, 105], to: [340, 150] },
+        { type: 'run', from: [125, 130], to: [345, 150] },
+        { type: 'shot', from: [355, 155], to: [540, 160] },
+        { type: 'dribble', points: [[125, 250], [200, 250], [330, 230]] },
+        { type: 'shot', from: [340, 230], to: [540, 210] }
+      ]
+    };
+  },
+
+  getOneVsOneLayout() {
+    return {
+      pitchType: 'standard',
+      goals: [
+        { type: 'mini', x: 550, y: 80, dir: 'left', label: 'Tor L' },
+        { type: 'mini', x: 550, y: 260, dir: 'left', label: 'Tor R' }
+      ],
+      players: [
+        { x: 120, y: 190, team: 'blue', label: 'A' },
+        { x: 380, y: 190, team: 'red', label: 'V' }
+      ],
+      balls: [
+        { x: 135, y: 190 }
+      ],
+      cones: [
+        { x: 240, y: 140, color: 'blue' },
+        { x: 240, y: 240, color: 'blue' }
+      ],
+      arrows: [
+        { type: 'dribble', points: [[135, 190], [220, 190], [270, 150], [350, 110]] },
+        { type: 'run', from: [380, 190], to: [320, 160] },
+        { type: 'shot', from: [350, 110], to: [540, 85] }
+      ]
+    };
+  },
+
+  getPassingLayout() {
+    return {
+      pitchType: 'standard',
+      goals: [
+        { type: 'mini', x: 550, y: 160, dir: 'left', label: 'Tor' }
+      ],
+      players: [
+        { x: 140, y: 270, team: 'blue', label: 'A' },
+        { x: 280, y: 100, team: 'blue', label: 'B' },
+        { x: 420, y: 270, team: 'blue', label: 'C' }
+      ],
+      balls: [
+        { x: 155, y: 260 }
+      ],
+      cones: [
+        { x: 140, y: 290, color: 'yellow' },
+        { x: 280, y: 80, color: 'yellow' },
+        { x: 420, y: 290, color: 'yellow' }
+      ],
+      arrows: [
+        { type: 'pass', from: [155, 260], to: [270, 115] },
+        { type: 'pass', from: [285, 115], to: [410, 260] },
+        { type: 'run', from: [140, 270], to: [270, 100] },
+        { type: 'shot', from: [425, 260], to: [540, 190] }
+      ]
+    };
+  },
+
+  getDribblingLayout() {
     return {
       pitchType: 'standard',
       goals: [],
       players: [
-        { x: 120, y: 80, team: 'blue', label: 'K' },
-        { x: 220, y: 150, team: 'blue', label: 'K' },
-        { x: 160, y: 280, team: 'blue', label: 'K' },
-        { x: 340, y: 90, team: 'blue', label: 'K' },
-        { x: 460, y: 180, team: 'blue', label: 'K' },
-        { x: 380, y: 290, team: 'blue', label: 'K' },
-        { x: 280, y: 200, team: 'red', label: 'J' }
+        { x: 90, y: 120, team: 'blue', label: '1' },
+        { x: 90, y: 260, team: 'blue', label: '2' },
+        { x: 290, y: 190, team: 'blue', label: '3' },
+        { x: 490, y: 110, team: 'blue', label: '4' },
+        { x: 490, y: 270, team: 'blue', label: '5' }
+      ],
+      balls: [
+        { x: 105, y: 125 },
+        { x: 105, y: 265 },
+        { x: 305, y: 195 },
+        { x: 475, y: 115 },
+        { x: 475, y: 275 }
+      ],
+      cones: [
+        // Hütchentor 1 (oben links)
+        { x: 170, y: 80, color: 'yellow' },
+        { x: 170, y: 140, color: 'yellow' },
+        // Hütchentor 2 (unten links)
+        { x: 170, y: 240, color: 'red' },
+        { x: 170, y: 300, color: 'red' },
+        // Hütchentor 3 (Mitte oben)
+        { x: 270, y: 130, color: 'blue' },
+        { x: 330, y: 130, color: 'blue' },
+        // Hütchentor 4 (Mitte unten)
+        { x: 270, y: 250, color: 'blue' },
+        { x: 330, y: 250, color: 'blue' },
+        // Hütchentor 5 (rechts oben)
+        { x: 430, y: 80, color: 'yellow' },
+        { x: 430, y: 140, color: 'yellow' },
+        // Hütchentor 6 (rechts unten)
+        { x: 430, y: 240, color: 'red' },
+        { x: 430, y: 300, color: 'red' }
+      ],
+      arrows: [
+        { type: 'dribble', points: [[105, 125], [170, 110], [230, 160]] },
+        { type: 'dribble', points: [[105, 265], [170, 270], [230, 220]] },
+        { type: 'dribble', points: [[305, 195], [360, 150], [430, 110]] },
+        { type: 'dribble', points: [[475, 275], [430, 270], [360, 270]] }
+      ]
+    };
+  },
+
+  getCoordinationLayout() {
+    return {
+      pitchType: 'standard',
+      goals: [],
+      players: [
+        { x: 60, y: 120, team: 'blue', label: 'K1' },
+        { x: 30, y: 120, team: 'blue', label: 'K2' },
+        { x: 60, y: 260, team: 'blue', label: 'K3' },
+        { x: 30, y: 260, team: 'blue', label: 'K4' }
+      ],
+      balls: [
+        { x: 75, y: 260 }
+      ],
+      cones: [
+        { x: 500, y: 120, color: 'red' },
+        { x: 500, y: 260, color: 'red' }
+      ],
+      rings: [
+        { x: 150, y: 120 },
+        { x: 190, y: 120 },
+        { x: 230, y: 120 },
+        { x: 270, y: 120 }
+      ],
+      hurdles: [
+        { x: 330, y: 120 },
+        { x: 370, y: 120 },
+        { x: 410, y: 120 }
+      ],
+      poles: [
+        { x: 160, y: 260 },
+        { x: 220, y: 240 },
+        { x: 280, y: 270 },
+        { x: 340, y: 245 },
+        { x: 400, y: 265 }
+      ],
+      arrows: [
+        { type: 'run', from: [75, 120], to: [490, 120] },
+        { type: 'dribble', points: [[75, 260], [160, 275], [220, 230], [280, 280], [340, 235], [400, 275], [490, 260]] }
+      ]
+    };
+  },
+
+  getWarmupLayout() {
+    return {
+      pitchType: 'standard',
+      goals: [],
+      players: [
+        { x: 120, y: 80, team: 'blue', label: 'K1' },
+        { x: 220, y: 150, team: 'blue', label: 'K2' },
+        { x: 160, y: 280, team: 'blue', label: 'K3' },
+        { x: 340, y: 90, team: 'blue', label: 'K4' },
+        { x: 460, y: 180, team: 'blue', label: 'K5' },
+        { x: 380, y: 290, team: 'blue', label: 'K6' },
+        { x: 280, y: 200, team: 'red', label: 'F' }
       ],
       balls: [
         { x: 135, y: 85 },
@@ -313,14 +400,15 @@ const pitchRenderer = {
         { x: 395, y: 295 }
       ],
       cones: [
-        { x: 180, y: 90, color: 'yellow' },
+        { x: 80, y: 40, color: 'yellow' },
+        { x: 520, y: 40, color: 'yellow' },
+        { x: 80, y: 340, color: 'yellow' },
+        { x: 520, y: 340, color: 'yellow' },
         { x: 270, y: 70, color: 'blue' },
         { x: 400, y: 130, color: 'red' },
         { x: 130, y: 190, color: 'red' },
         { x: 230, y: 240, color: 'yellow' },
-        { x: 320, y: 210, color: 'blue' },
-        { x: 450, y: 260, color: 'yellow' },
-        { x: 490, y: 90, color: 'blue' }
+        { x: 450, y: 260, color: 'yellow' }
       ],
       arrows: [
         { type: 'dribble', points: [[135, 85], [170, 130], [215, 90]] },

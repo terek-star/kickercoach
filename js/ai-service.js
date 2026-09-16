@@ -141,15 +141,102 @@ const aiService = {
 
       if (customFocus && customFocus.trim()) {
         const focusText = customFocus.trim();
+        const fLow = focusText.toLowerCase();
         unit.focusTheme = `${focusText} • ${isBambini ? 'Spielerisch & Kindgerecht' : 'DFB Schwerpunkt'}`;
+        
         const mainPhase = unit.phases.find(p => p.name === 'Hauptteil');
+        const gamePhase = unit.phases.find(p => p.name.includes('Spiel') || p.name.includes('Funino') || p.name.includes('Abschluss'));
+
         if (mainPhase) {
-          mainPhase.title = `${focusText} (${isBambini ? 'Bambini-Spielform' : 'Parallele Stationen'})`;
-          mainPhase.coachingPoints = [
-            `Trainerschwerpunkt: ${focusText}`,
-            isBambini ? 'Mut belohnen und jedes Kind mitnehmen' : 'Kopf heben und Überblick behalten',
-            'Beide Füße aktiv ausprobieren'
-          ];
+          if (fLow.includes('schuss') || fLow.includes('torschuss')) {
+            mainPhase.title = isBambini ? 'Torschuss-Könige: Schießen auf Jugendtor & Minitore' : 'Torschuss & Schusstechnik: Stationen-Champions';
+            mainPhase.organization = isBambini 
+              ? 'Feld 20x15m mit 1 Groß-/Jugendtor und 2 Minitoren. 2 Gruppen à 6-8 Kinder mit vielen Bällen.'
+              : 'Feld 25x20m mit 1 Jugendtor (inkl. TW) und 2 Kontertoren. 2 parallele Schussstationen (Station A nach Zuspiel, Station B nach Dribbling). Max. 2-3 Kinder pro Anstellpunkt für minimale Standzeiten.';
+            mainPhase.drillRules = isBambini
+              ? 'Die Kinder dribbeln durch ein Hütchentor und schießen den Ball mutig ins Tor. Wer trifft, darf laut jubeln! Regelmäßiger Wechsel zwischen Minitoren und großem Tor.'
+              : 'Die Kinder dribbeln auf die 8m-Schusslinie zu und schließen mit Vollspann oder Innenseite gezielt in die Torecken ab. Nach Schuss Ball holen und Station wechseln. Tore mit dem schwachen Fuß zählen doppelt!';
+            mainPhase.fieldDiagram = `
+     [ Jugendtor / TW ]
+        \\        /
+      (Schusszone)
+       [H1]    [H2]
+        |        |
+       (A1)     (B1)
+            `.trim();
+            mainPhase.coachingPoints = [
+              'Standbein eine Fußbreite neben den Ball setzen',
+              'Fußspitze nach unten strecken, Ball mit dem Vollspann treffen',
+              'Körper leicht über den Ball beugen (nicht nach hinten lehnen)',
+              'Beide Füße einsetzen – Tore mit dem schwachen Fuß feiern!'
+            ];
+          } else if (fLow.includes('pass')) {
+            mainPhase.title = isBambini ? 'Pass-Freunde: Zaubertore finden' : 'Passspiel & Erster Kontakt: Zauber-Dreiecke';
+            mainPhase.organization = '3 parallele Dreiecks- oder Vierecksfelder (10x10m). 4-5 Kinder pro Feld mit Bällen.';
+            mainPhase.drillRules = 'Pass zum Mitspieler mit der Innenseite, erster Kontakt mit dem anderen Fuß aktiv in die neue Laufrichtung mitnehmen. Dem Pass nachlaufen und Position tauschen.';
+            mainPhase.fieldDiagram = `
+        (B)
+       /   \\
+     Pass  Pass
+     /       \\
+   (A)---Pass---(C)
+            `.trim();
+            mainPhase.coachingPoints = [
+              'Innenseite öffnen und Ball fest in der Mitte treffen',
+              'Ersten Kontakt aktiv in den freien Raum mitnehmen',
+              'Kopf heben vor dem Abspiel'
+            ];
+          } else if (fLow.includes('1vs1') || fLow.includes('1-gegen-1') || fLow.includes('zweikampf')) {
+            mainPhase.title = '1-gegen-1 Duell & Zweikampf auf Minitore';
+            mainPhase.organization = '2 parallele Felder (15x12m) mit je 2 Minitoren. Angreifer und Verteidiger starten gegenüber.';
+            mainPhase.drillRules = 'Angreifer dribbelt an, setzt Tempowechsel oder Körpertäuschung ein und schließt auf die Minitore ab. Erobert der Verteidiger den Ball, kontert er direkt.';
+            mainPhase.fieldDiagram = `
+   [Tor 1]      [Tor 2]
+      |            |
+     (V) Verteidiger
+            ^
+            |
+     (A) Angreifer
+            `.trim();
+            mainPhase.coachingPoints = [
+              'Mit Tempo auf den Gegner zudribbeln',
+              'Mutig ins 1-gegen-1 gehen – Fehler gehören zum Lernen dazu!',
+              'Nach Ballverlust sofort umschalten und nachsetzen'
+            ];
+          } else if (fLow.includes('dribbel') || fLow.includes('ballführung')) {
+            mainPhase.title = 'Tempodribbling & Hütchentor-Jagd';
+            mainPhase.organization = 'Feld 20x20m mit 8 Hütchentoren im Feld verteilt. Jedes Kind hat einen Ball.';
+            mainPhase.drillRules = 'In 90 Sekunden so viele Tore wie möglich durchdribbeln. Verschiedene Aufgaben: nur mit rechts, nur mit links, mit Sohle wenden. Tore dürfen nicht zweimal hintereinander genutzt werden.';
+            mainPhase.fieldDiagram = `
+   [H1]    [H2]    [H3]
+     o       o       o
+   [H4]    [H5]    [H6]
+            `.trim();
+            mainPhase.coachingPoints = [
+              'Ball eng am Fuß führen (mit jedem Schritt berühren)',
+              'Kopf heben und freie Tore ansteuern',
+              'Beide Füße aktiv nutzen'
+            ];
+          } else {
+            mainPhase.title = `${focusText} (DFB Schwerpunkt-Stationen)`;
+            mainPhase.organization = 'Feld 25x20m in 2 parallele Zonen aufgeteilt für minimale Wartezeiten bei 16-20 Kindern.';
+            mainPhase.drillRules = `Altersgerechte Übungsform mit direktem Schwerpunkt auf "${focusText}". Hohe Ballkontaktzahl und viele Wiederholungen ohne Schlangenstehen.`;
+            mainPhase.coachingPoints = [
+              `Trainerschwerpunkt: ${focusText}`,
+              'Kopf heben und Überblick behalten',
+              'Mutige Aktionen positiv verstärken'
+            ];
+          }
+        }
+
+        if (gamePhase) {
+          if (fLow.includes('schuss')) {
+            gamePhase.drillRules = 'Funino 3 vs. 3 auf 4 Minitore mit 6m-Schusszone. Tore zählen nur, wenn der Torschuss innerhalb oder aus der Schusszone erfolgt. Tore mit dem schwachen Fuß zählen doppelt!';
+          } else if (fLow.includes('pass')) {
+            gamePhase.drillRules = 'Funino 3 vs. 3 auf 4 Minitore mit 6m-Schusszone. Vor jedem Torerfolg müssen mindestens 2 Pässe im Team gespielt werden.';
+          } else if (fLow.includes('1vs1') || fLow.includes('zweikampf')) {
+            gamePhase.drillRules = 'Funino 3 vs. 3 auf 4 Minitore. Tore nach einem gewonnenen 1-gegen-1 Duell zählen doppelt!';
+          }
         }
       }
     });
@@ -447,13 +534,16 @@ Altersgerechte Leitlinie des DFB:
 ${ageGuideline}
 - Gruppengröße: ${groupSize} (Aufteilung in kleine parallele Stationen, damit kein Kind ansteht)
 - Verfügbares Material: ${equipment}
-${customFocus ? `- TRAINER-SCHWERPUNKT: "${customFocus}". Integriere diesen Schwerpunkt altersgerecht und spielerisch in den Hauptteil und die Spielform. Verweigere den Schwerpunkt keinesfalls, sondern passe ihn kindgemäß an (z. B. "Passspiel" bei Bambini/U7 als Bälle ins Partner-Tor schieben oder Tor-Schuss-Freunde)!` : ''}
+${customFocus ? `- WICHTIGSTER TRAINER-SCHWERPUNKT: "${customFocus}".
+  * Der Hauptteil (Phase 3) MUSS zwingend und detailliert diesen Schwerpunkt ("${customFocus}") als Übung behandeln! Wenn der Schwerpunkt z. B. "Schusstechnik" ist, beschreibe Schussstationen, Spannstoß und Torabschlüsse – KEIN Dribbling durch Hütchentore!
+  * Titel, Organisation und Ablauf der 3. Phase müssen exakt zu "${customFocus}" passen.
+  * Auch das Funino-Abschlussspiel (Phase 4) soll eine passende Sonderregel für "${customFocus}" haben (z. B. Tore mit schwachem Fuß zählen doppelt).` : ''}
 
 Zeitstruktur jeder 60-minütigen Einheit:
-1. 00–05 Min.: Aufwärmen (Bewegungsspiel, Fangspiel oder Ballgewöhnung)
-2. 05–10 Min.: Motorik & Koordination (altersgerechte Bewegungsbaustelle mit Reifen/Stangen/Hütchen)
-3. 10–30 Min.: Hauptteil mit Schwerpunkt (${customFocus || 'Dribbling, Schießen oder Spiel mit Ball'})
-4. 30–60 Min.: Spielformen & Abschlussspiel (Funino auf 4 Minitore)
+1. 00–05 Min.: Aufwärmen (Bewegungsspiel, Fangspiel oder spielerische Ballgewöhnung)
+2. 05–10 Min.: Motorik & Koordination (altersgerechter Parcours mit Reifen/Stangen/Hütchen)
+3. 10–30 Min.: Hauptteil mit klarem Schwerpunkt: ${customFocus || 'Altersgerechte Technik & Spielaktionen'} (Parallele Stationen, keine Wartezeiten)
+4. 30–60 Min.: Spielformen & Abschlussspiel (Funino auf 4 Minitore mit Schusszone)
 
 FORMAT-VORGABE:
 Antworte AUSSCHLIESSLICH als valides JSON-Objekt ohne Erklärungen oder Begrüßung.

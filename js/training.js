@@ -174,15 +174,60 @@ const training = {
     }
   },
 
+  renderWeekSelector() {
+    const listEl = document.getElementById('week-pills-list');
+    if (!listEl || !this.activePlan) return;
+
+    const totalWeeks = this.activePlan.totalWeeks || 1;
+    const totalUnits = (this.activePlan.units || []).length;
+    const isSingleUnit = totalWeeks === 1 || totalUnits === 1;
+
+    if (isSingleUnit) {
+      const unit = this.activePlan.units[0];
+      listEl.innerHTML = `
+        <div class="week-pill active" data-week="1" style="min-width: 240px; cursor: default;">
+          <span class="week-pill-title"><i class="fa-solid fa-futbol" style="color: var(--primary);"></i> 1 Einzelne Trainingseinheit</span>
+          <span class="week-pill-subtitle">${unit ? unit.focusTheme : 'DFB-Einheit'}</span>
+        </div>
+      `;
+      return;
+    }
+
+    let html = '';
+    for (let w = 1; w <= totalWeeks; w++) {
+      const unitsInWeek = this.getUnitsForWeek(w);
+      const weekTheme = unitsInWeek[0]?.focusTheme || `Woche ${w}`;
+      const isActive = this.activeWeek === w;
+
+      html += `
+        <div class="week-pill ${isActive ? 'active' : ''}" data-week="${w}">
+          <span class="week-pill-title">Woche ${w}</span>
+          <span class="week-pill-subtitle">${weekTheme}</span>
+        </div>
+      `;
+    }
+    listEl.innerHTML = html;
+
+    listEl.querySelectorAll('.week-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const week = parseInt(pill.getAttribute('data-week'), 10);
+        this.selectWeek(week);
+      });
+    });
+  },
+
   selectWeek(weekNum) {
     this.activeWeek = weekNum;
-    document.querySelectorAll('.week-pill').forEach(p => {
-      if (parseInt(p.getAttribute('data-week'), 10) === weekNum) {
-        p.classList.add('active');
-      } else {
-        p.classList.remove('active');
-      }
-    });
+    const listEl = document.getElementById('week-pills-list');
+    if (listEl) {
+      listEl.querySelectorAll('.week-pill').forEach(p => {
+        if (parseInt(p.getAttribute('data-week'), 10) === weekNum) {
+          p.classList.add('active');
+        } else {
+          p.classList.remove('active');
+        }
+      });
+    }
 
     const weekUnits = this.getUnitsForWeek(weekNum);
     if (weekUnits.length > 0) {
@@ -202,6 +247,8 @@ const training = {
 
   // ================= PLAN & UNIT RENDERING =================
   renderPlanView() {
+    this.renderWeekSelector();
+
     const container = document.getElementById('training-plan-content');
     if (!container) return;
 
@@ -212,19 +259,25 @@ const training = {
     }
 
     const weekUnits = this.getUnitsForWeek(this.activeWeek);
+    const totalWeeks = this.activePlan.totalWeeks || 1;
+    const totalUnits = (this.activePlan.units || []).length;
+    const isSingleUnit = totalWeeks === 1 || totalUnits === 1;
 
-    // 1. Render Units Selector Tabs for current week
-    let unitsTabsHtml = '<div class="units-selector-tabs">';
-    weekUnits.forEach(u => {
-      const isActive = u.id === unit.id;
-      unitsTabsHtml += `
-        <button class="btn ${isActive ? 'btn-primary' : 'btn-outline'} unit-select-btn" onclick="training.selectUnit('${u.id}')">
-          <i class="fa-solid fa-calendar-day"></i>
-          <span>Einheit ${u.unitNumber}: ${u.dayOfWeek} (${u.durationMinutes} Min)</span>
-        </button>
-      `;
-    });
-    unitsTabsHtml += '</div>';
+    // 1. Render Units Selector Tabs for current week (nur wenn mehr als 1 Einheit in dieser Woche)
+    let unitsTabsHtml = '';
+    if (weekUnits.length > 1) {
+      unitsTabsHtml = '<div class="units-selector-tabs">';
+      weekUnits.forEach(u => {
+        const isActive = u.id === unit.id;
+        unitsTabsHtml += `
+          <button class="btn ${isActive ? 'btn-primary' : 'btn-outline'} unit-select-btn" onclick="training.selectUnit('${u.id}')">
+            <i class="fa-solid fa-calendar-day"></i>
+            <span>Einheit ${u.unitNumber}: ${u.dayOfWeek} (${u.durationMinutes} Min)</span>
+          </button>
+        `;
+      });
+      unitsTabsHtml += '</div>';
+    }
 
     // 2. Render Unit Header (Title, Focus, Material)
     const equipmentHtml = (unit.equipment || []).map(item => `
@@ -344,8 +397,10 @@ const training = {
           <div>
             <div class="plan-header-meta">
               <span class="badge badge-green"><i class="fa-solid fa-shield-halved"></i> ${this.activePlan.ageGroup || 'F-Jugend (U9)'}</span>
-              <span class="badge badge-blue">Woche ${unit.week} von ${this.activePlan.totalWeeks || 4}</span>
-              <span class="badge badge-gray">Einheit ${unit.unitNumber} von 8</span>
+              ${isSingleUnit 
+                ? `<span class="badge badge-blue"><i class="fa-solid fa-futbol"></i> 1 Trainingseinheit</span>`
+                : `<span class="badge badge-blue">Woche ${unit.week} von ${totalWeeks}</span>`}
+              <span class="badge badge-gray">${isSingleUnit ? '60 Minuten' : `Einheit ${unit.unitNumber} von ${totalUnits}`}</span>
             </div>
             <h2 class="unit-main-heading">${unit.focusTheme}</h2>
             <p class="unit-subtext">${unit.dateDisplay || `${unit.dayOfWeek} • 17:30 – 18:30 Uhr (60 Minuten)`}</p>
