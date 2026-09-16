@@ -86,39 +86,62 @@ export default async function handler(req, res) {
     }
 
     const generationConfig = body.generationConfig || {};
-    const preferredModel = body.model || 'gemini-2.0-flash';
+    let preferredModel = (body.model || 'gemini-3.6-flash').toString().trim();
 
-    // 4. Google Gemini API serverseitig aufrufen
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${preferredModel}:generateContent?key=${apiKey}`;
-
-    const geminiPayload = {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: generationConfig.temperature !== undefined ? generationConfig.temperature : 0.7,
-        maxOutputTokens: generationConfig.maxOutputTokens || 8192,
-        ...(generationConfig.responseMimeType ? { responseMimeType: generationConfig.responseMimeType } : {})
-      }
-    };
-
-    const geminiRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(geminiPayload)
-    });
-
-    if (!geminiRes.ok) {
-      const errData = await geminiRes.json().catch(() => ({}));
-      const msg = errData.error?.message || `Gemini API Fehler (HTTP ${geminiRes.status})`;
-      return res.status(geminiRes.status).json({ error: msg });
+    // Veraltete Modelle automatisch auf das neueste Modell migrieren
+    if (preferredModel === 'gemini-2.0-flash' || preferredModel.includes('2.0') || preferredModel.includes('1.5')) {
+      preferredModel = 'gemini-3.6-flash';
     }
 
-    const data = await geminiRes.json();
-    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // 4. Google Gemini API serverseitig mit Modell-Ausfallsicherheit aufrufen
+    const modelCandidates = [...new Set([preferredModel, 'gemini-3.6-flash', 'gemini-2.5-flash'])];
+    let lastError = null;
+    let successfulData = null;
+    let modelUsed = preferredModel;
+
+    for (const model of modelCandidates) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const geminiPayload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: generationConfig.temperature !== undefined ? generationConfig.temperature : 0.7,
+          maxOutputTokens: generationConfig.maxOutputTokens || 8192,
+          ...(generationConfig.responseMimeType ? { responseMimeType: generationConfig.responseMimeType } : {})
+        }
+      };
+
+      try {
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(geminiPayload)
+        });
+
+        if (geminiRes.ok) {
+          const data = await geminiRes.json();
+          successfulData = data;
+          modelUsed = model;
+          break;
+        } else {
+          const errData = await geminiRes.json().catch(() => ({}));
+          lastError = errData.error?.message || `Gemini API Fehler (HTTP ${geminiRes.status})`;
+          continue;
+        }
+      } catch (fetchErr) {
+        lastError = fetchErr.message;
+      }
+    }
+
+    if (!successfulData) {
+      return res.status(502).json({ error: lastError || 'Keines der Gemini-Modelle konnte erreicht werden.' });
+    }
+
+    const candidateText = successfulData.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     return res.status(200).json({
       success: true,
       text: candidateText,
-      modelUsed: preferredModel
+      modelUsed
     });
 
   } catch (err) {

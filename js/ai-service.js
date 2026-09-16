@@ -20,7 +20,7 @@ const aiService = {
     activeMode: 'kickercoach_ai_mode'
   },
 
-  defaultModel: 'gemini-2.0-flash',
+  defaultModel: 'gemini-3.6-flash',
   cachedModels: [],
 
   getTrainerCode() {
@@ -100,7 +100,12 @@ const aiService = {
   },
 
   getModel() {
-    return localStorage.getItem(this.storageKeys.model) || this.defaultModel;
+    const saved = localStorage.getItem(this.storageKeys.model);
+    if (saved && (saved === 'gemini-2.0-flash' || saved.includes('2.0') || saved.includes('1.5'))) {
+      localStorage.setItem(this.storageKeys.model, 'gemini-3.6-flash');
+      return 'gemini-3.6-flash';
+    }
+    return saved || this.defaultModel;
   },
 
   getApiVersion() {
@@ -481,6 +486,13 @@ const aiService = {
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         const msg = errData.error || `Serverless Backend Fehler (HTTP ${response.status})`;
+
+        // Automatischer Retry falls ein Modell als veraltet zurückgewiesen wurde
+        if ((msg.includes('no longer available') || msg.includes('gemini-2.0-flash')) && preferredModel !== 'gemini-3.6-flash') {
+          localStorage.setItem(this.storageKeys.model, 'gemini-3.6-flash');
+          return this.callBackendProxy({ prompt, generationConfig, preferredModel: 'gemini-3.6-flash' });
+        }
+
         throw new Error(msg);
       }
 
@@ -503,19 +515,19 @@ const aiService = {
     if (!apiKey) throw new Error('Kein API-Key vorhanden');
 
     let currentModel = preferredModel || this.getModel();
+    if (currentModel === 'gemini-2.0-flash' || currentModel.includes('2.0')) {
+      currentModel = 'gemini-3.6-flash';
+    }
     let currentVersion = this.getApiVersion();
 
     // Modell-Kandidaten zur Auswahl (startend mit dem aktiven Modell)
     const fallbackList = [
       currentModel,
-      'gemini-2.0-flash',
+      'gemini-3.6-flash',
+      'gemini-2.5-flash',
       'gemini-1.5-flash-latest',
-      'gemini-1.5-flash-002',
-      'gemini-1.5-flash-001',
       'gemini-1.5-flash',
-      'gemini-1.5-pro-latest',
-      'gemini-1.5-pro',
-      'gemini-pro'
+      'gemini-1.5-pro'
     ];
 
     // Falls wir gecachte Modelle haben, fügen wir diese hinzu
@@ -618,14 +630,11 @@ const aiService = {
     // 2. Wähle das beste Modell aus den verfügbaren Modellen
     const preferredOrder = [
       this.getModel(),
-      'gemini-2.0-flash',
+      'gemini-3.6-flash',
+      'gemini-2.5-flash',
       'gemini-1.5-flash-latest',
-      'gemini-1.5-flash-002',
-      'gemini-1.5-flash-001',
       'gemini-1.5-flash',
-      'gemini-1.5-pro-latest',
-      'gemini-1.5-pro',
-      'gemini-pro'
+      'gemini-1.5-pro'
     ];
 
     let chosenModel = null;
